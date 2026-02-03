@@ -70,24 +70,24 @@ namespace Trackii.App
                 return;
             }
 
-            var result = e.Results?.FirstOrDefault()?.Value;
+            var result = e.Results?.FirstOrDefault()?.Value?.Trim();
             if (string.IsNullOrWhiteSpace(result))
             {
                 return;
             }
 
-            _lastDetectionAt = DateTime.UtcNow;
-            var now = _lastDetectionAt;
-            if (result == _lastResult && now - _lastScanAt < ScanCooldown)
-            {
-                return;
-            }
-
-            _lastResult = result;
-            _lastScanAt = now;
-
             try
             {
+                _lastDetectionAt = DateTime.UtcNow;
+                var now = _lastDetectionAt;
+                if (result == _lastResult && now - _lastScanAt < ScanCooldown)
+                {
+                    return;
+                }
+
+                _lastResult = result;
+                _lastScanAt = now;
+
                 await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
                     StatusLabel.Text = $"Leído: {result}";
@@ -179,7 +179,6 @@ namespace Trackii.App
                     TryHarder = false,
                     TryInverted = true,
                     Multiple = false,
-
                 }
             };
 
