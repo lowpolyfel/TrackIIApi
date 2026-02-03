@@ -563,6 +563,9 @@ namespace Trackii.App
 
         private void OnPendingClicked(object? sender, EventArgs e)
         {
+            _isProcessing = false;
+            _ = SetLoadingStateAsync(false);
+            CancelDetectedOverlay();
             ResetForm();
             StatusLabel.Text = "Registro marcado como pendiente.";
             DetectionLabel.Text = "Campos reiniciados.";
