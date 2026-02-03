@@ -10,7 +10,7 @@ namespace Trackii.App
     public partial class ScannerPage : ContentPage
     {
         private static readonly Regex OrderRegex = new("^\\d{7}$", RegexOptions.Compiled);
-        private static readonly TimeSpan ScanCooldown = TimeSpan.FromMilliseconds(250);
+        private static readonly TimeSpan ScanCooldown = TimeSpan.FromMilliseconds(100);
         private CameraBarcodeReaderView? _barcodeReader;
         private CancellationTokenSource? _animationCts;
         private CancellationTokenSource? _detectedCts;
@@ -157,14 +157,21 @@ namespace Trackii.App
             var reader = new CameraBarcodeReaderView
             {
                 CameraLocation = CameraLocation.Rear,
-                IsDetecting = false,
+                IsDetecting = true,
                 Options = new BarcodeReaderOptions
                 {
-                    AutoRotate = false,
+                    AutoRotate = true,
                     TryHarder = false,
-                    TryInverted = false,
+                    TryInverted = true,
                     Multiple = false,
-                    Formats = BarcodeFormats.All
+                    Formats = BarcodeFormats.Code128
+                        | BarcodeFormats.Code39
+                        | BarcodeFormats.Code93
+                        | BarcodeFormats.Ean13
+                        | BarcodeFormats.Ean8
+                        | BarcodeFormats.QrCode
+                        | BarcodeFormats.DataMatrix
+                        | BarcodeFormats.Pdf417
                 }
             };
 
