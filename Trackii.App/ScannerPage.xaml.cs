@@ -69,7 +69,8 @@ namespace Trackii.App
                 return;
             }
 
-            var now = DateTime.UtcNow;
+            _lastDetectionAt = DateTime.UtcNow;
+            var now = _lastDetectionAt;
             if (result == _lastResult && now - _lastScanAt < ScanCooldown)
             {
                 return;
@@ -78,7 +79,7 @@ namespace Trackii.App
             _lastResult = result;
             _lastScanAt = now;
 
-            MainThread.BeginInvokeOnMainThread(() =>
+            MainThread.BeginInvokeOnMainThread(async () =>
             {
                 StatusLabel.Text = $"Leído: {result}";
                 DetectionLabel.Text = "Detectado al instante.";
