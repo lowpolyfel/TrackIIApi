@@ -119,7 +119,17 @@ namespace Trackii.App
 
         private async void OnLoginClicked(object? sender, EventArgs e)
         {
-            await Shell.Current.GoToAsync("Login");
+            try
+            {
+                StopScanner();
+                StopScanAnimation();
+                CancelDetectedOverlay();
+                await MainThread.InvokeOnMainThreadAsync(() => Shell.Current.GoToAsync("//Login"));
+            }
+            catch (Exception ex)
+            {
+                StatusLabel.Text = $"Error al abrir login: {ex.Message}";
+            }
         }
 
         private void BuildScanner()
