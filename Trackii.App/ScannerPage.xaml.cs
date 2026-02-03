@@ -441,6 +441,50 @@ namespace Trackii.App
             }
         }
 
+        private async void OnReworkClicked(object? sender, EventArgs e)
+        {
+            if (!_session.IsLoggedIn)
+            {
+                StatusLabel.Text = "Inicia sesión para rework.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(OrderEntry.Text))
+            {
+                StatusLabel.Text = "Captura la orden.";
+                return;
+            }
+
+            if (!uint.TryParse(QuantityEntry.Text, out var quantity) || quantity == 0)
+            {
+                StatusLabel.Text = "Cantidad inválida para rework.";
+                return;
+            }
+
+            var reason = await DisplayPromptAsync("Rework", "Motivo de rework (opcional):");
+            var completed = await DisplayAlert("Rework", "¿Terminó el rework?", "Sí", "No");
+
+            try
+            {
+                var response = await _apiClient.ReworkAsync(new ReworkRequest
+                {
+                    WorkOrderNumber = OrderEntry.Text.Trim(),
+                    Quantity = quantity,
+                    UserId = _session.UserId,
+                    DeviceId = _session.DeviceId,
+                    Reason = reason,
+                    Completed = completed
+                }, CancellationToken.None);
+                StatusLabel.Text = response.Message;
+                DetectionLabel.Text = $"Estado WIP: {response.WipStatus}";
+                await LoadWorkOrderContextAsync(OrderEntry.Text.Trim());
+            }
+            catch (Exception ex)
+            {
+                StatusLabel.Text = $"No se pudo registrar rework: {ex.Message}";
+            }
+        }
+
         private void StartScanAnimation()
         {
             _animationCts?.Cancel();

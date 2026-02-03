@@ -79,4 +79,13 @@ public sealed class ApiClient
         var payload = await response.Content.ReadFromJsonAsync<ScrapResponse>(cancellationToken: cancellationToken);
         return payload ?? new ScrapResponse();
     }
+
+    public async Task<ReworkResponse> ReworkAsync(ReworkRequest request, CancellationToken cancellationToken)
+    {
+        var response = await _httpClient.PostAsJsonAsync("api/scanner/rework", request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<ReworkResponse>(cancellationToken: cancellationToken);
+        return payload ?? new ReworkResponse();
+    }
 }

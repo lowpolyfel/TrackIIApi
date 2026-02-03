@@ -246,10 +246,11 @@ public sealed class ScannerController : ControllerBase
 
         var nextLocation = await _dbContext.Locations
             .FirstOrDefaultAsync(location => location.Id == nextStep.LocationId, cancellationToken);
-        var canProceed = workOrder.Status != "CANCELLED" && workOrder.Status != "FINISHED";
+        var isOnRework = workOrder.WipItem is not null && workOrder.WipItem.Status == "HOLD";
+        var canProceed = !isOnRework && workOrder.Status != "CANCELLED" && workOrder.Status != "FINISHED";
         return Ok(new WorkOrderContextResponse(
             true,
-            canProceed ? null : "La orden no permite avanzar.",
+            canProceed ? null : isOnRework ? "El WIP está en rework." : "La orden no permite avanzar.",
             workOrder.Id,
             workOrder.Status,
             workOrder.ProductId,
@@ -287,6 +288,7 @@ public sealed class ScannerController : ControllerBase
         }
 
         var device = await _dbContext.Devices
+            .Include(d => d.Location)
             .FirstOrDefaultAsync(d => d.Id == request.DeviceId && d.Active, cancellationToken);
         if (device is null || device.UserId != user.Id)
         {
@@ -298,7 +300,33 @@ public sealed class ScannerController : ControllerBase
             .ThenInclude(p => p.Subfamily)
             .FirstOrDefaultAsync(wo => wo.WoNumber == request.WorkOrderNumber.Trim(), cancellationToken);
 
-        if (workOrder is null || workOrder.Product is null || workOrder.Product.Subfamily is null)
+        if (workOrder is null)
+        {
+            if (device.Location?.Name is null || !device.Location.Name.Equals("Alloy", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest("Solo la localidad Alloy puede crear una orden.");
+            }
+
+            var product = await _dbContext.Products
+                .Include(p => p.Subfamily)
+                .FirstOrDefaultAsync(p => p.PartNumber == request.PartNumber.Trim() && p.Active, cancellationToken);
+            if (product is null || product.Subfamily is null)
+            {
+                return BadRequest("Producto no encontrado para crear la orden.");
+            }
+
+            workOrder = new WorkOrder
+            {
+                WoNumber = request.WorkOrderNumber.Trim(),
+                ProductId = product.Id,
+                Status = "OPEN"
+            };
+            _dbContext.WorkOrders.Add(workOrder);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            workOrder.Product = product;
+        }
+
+        if (workOrder.Product is null || workOrder.Product.Subfamily is null)
         {
             return BadRequest("Orden no encontrada.");
         }
@@ -345,17 +373,9 @@ public sealed class ScannerController : ControllerBase
 
         if (wipItem is not null && wipItem.Status != "ACTIVE")
         {
-            return BadRequest("El WIP no está activo.");
-        }
-
-        if (wipItem is not null)
-        {
-            var hasRework = await _dbContext.WipReworkLogs
-                .AnyAsync(r => r.WipItemId == wipItem.Id, cancellationToken);
-            if (hasRework)
-            {
-                return BadRequest("El WIP está en rework.");
-            }
+            return BadRequest(wipItem.Status == "HOLD"
+                ? "El WIP está en rework."
+                : "El WIP no está activo.");
         }
 
         RouteStep currentStep;
@@ -514,5 +534,68 @@ public sealed class ScannerController : ControllerBase
             "Orden cancelada.",
             workOrder.Id,
             wipItem?.Id));
+    }
+
+    [HttpPost("rework")]
+    public async Task<IActionResult> Rework(ReworkRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.WorkOrderNumber))
+        {
+            return BadRequest("Orden requerida.");
+        }
+
+        if (request.Quantity == 0)
+        {
+            return BadRequest("Cantidad inválida.");
+        }
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == request.UserId && u.Active, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized("Usuario inválido.");
+        }
+
+        var device = await _dbContext.Devices
+            .FirstOrDefaultAsync(d => d.Id == request.DeviceId && d.Active, cancellationToken);
+        if (device is null || device.UserId != user.Id)
+        {
+            return Unauthorized("Dispositivo inválido.");
+        }
+
+        var workOrder = await _dbContext.WorkOrders
+            .FirstOrDefaultAsync(wo => wo.WoNumber == request.WorkOrderNumber.Trim(), cancellationToken);
+        if (workOrder is null)
+        {
+            return BadRequest("Orden no encontrada.");
+        }
+
+        var wipItem = await _dbContext.WipItems
+            .FirstOrDefaultAsync(wip => wip.WorkOrderId == workOrder.Id, cancellationToken);
+        if (wipItem is null)
+        {
+            return BadRequest("WIP no encontrado.");
+        }
+
+        var log = new WipReworkLog
+        {
+            WipItemId = wipItem.Id,
+            LocationId = device.LocationId,
+            UserId = user.Id,
+            DeviceId = device.Id,
+            Qty = request.Quantity,
+            Reason = request.Reason,
+            CreatedAt = DateTime.UtcNow
+        };
+        _dbContext.WipReworkLogs.Add(log);
+
+        wipItem.Status = request.Completed ? "ACTIVE" : "HOLD";
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new ReworkResponse(
+            request.Completed ? "Rework terminado." : "Rework registrado.",
+            workOrder.Id,
+            wipItem.Id,
+            wipItem.Status));
     }
 }
