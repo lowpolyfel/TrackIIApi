@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.Maui.ApplicationModel;
+using Microsoft.Extensions.DependencyInjection;
+using Trackii.App.Services;
 using ZXing.Net.Maui;
 using ZXing.Net.Maui.Controls;
 
@@ -8,12 +10,14 @@ namespace Trackii.App
     public partial class ScannerPage : ContentPage
     {
         private static readonly Regex OrderRegex = new("^\\d{7}$", RegexOptions.Compiled);
-        private static readonly TimeSpan ScanCooldown = TimeSpan.FromSeconds(2);
-        private static readonly TimeSpan RestartThreshold = TimeSpan.FromSeconds(8);
-        private static readonly TimeSpan MonitorInterval = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan ScanCooldown = TimeSpan.FromMilliseconds(250);
+        private static readonly TimeSpan RestartThreshold = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan MonitorInterval = TimeSpan.FromMilliseconds(700);
 
         private CameraBarcodeReaderView? _barcodeReader;
         private CancellationTokenSource? _scannerCts;
+        private CancellationTokenSource? _animationCts;
+        private readonly AppSession _session;
         private string? _lastResult;
         private DateTime _lastScanAt;
         private DateTime _lastDetectionAt;
@@ -22,6 +26,7 @@ namespace Trackii.App
         public ScannerPage()
         {
             InitializeComponent();
+            _session = App.Services.GetRequiredService<AppSession>();
             BuildScanner();
         }
 
@@ -29,6 +34,7 @@ namespace Trackii.App
         {
             base.OnAppearing();
 
+            UpdateHeader();
             var status = await Permissions.RequestAsync<Permissions.Camera>();
             _hasPermission = status == PermissionStatus.Granted;
             if (!_hasPermission)
@@ -38,13 +44,17 @@ namespace Trackii.App
                 return;
             }
 
+            UpdateHeader();
             StatusLabel.Text = "Escaneando automáticamente...";
+            DetectionLabel.Text = "Esperando código...";
             StartScanner();
+            StartScanAnimation();
         }
 
         protected override void OnDisappearing()
         {
             StopScanner();
+            StopScanAnimation();
             base.OnDisappearing();
         }
 
@@ -66,9 +76,11 @@ namespace Trackii.App
             _lastResult = result;
             _lastScanAt = now;
 
-            MainThread.BeginInvokeOnMainThread(() =>
+            MainThread.BeginInvokeOnMainThread(async () =>
             {
                 StatusLabel.Text = $"Leído: {result}";
+                DetectionLabel.Text = "Detectado al instante.";
+                await ShowDetectedAsync(result);
                 if (OrderRegex.IsMatch(result))
                 {
                     OrderEntry.Text = result;
@@ -103,6 +115,11 @@ namespace Trackii.App
             RestartScanner("Reenfocando...");
         }
 
+        private async void OnLoginClicked(object? sender, EventArgs e)
+        {
+            await Shell.Current.GoToAsync(nameof(LoginPage));
+        }
+
         private void BuildScanner()
         {
             var reader = new CameraBarcodeReaderView
@@ -111,9 +128,9 @@ namespace Trackii.App
                 IsDetecting = false,
                 Options = new BarcodeReaderOptions
                 {
-                    AutoRotate = true,
-                    TryHarder = true,
-                    TryInverted = true,
+                    AutoRotate = false,
+                    TryHarder = false,
+                    TryInverted = false,
                     Multiple = false,
                     Formats = BarcodeFormats.All
                 }
@@ -208,6 +225,72 @@ namespace Trackii.App
 
                 MainThread.BeginInvokeOnMainThread(() => RestartScanner("Reiniciando cámara..."));
             }
+        }
+
+        private void UpdateHeader()
+        {
+            if (_session.IsLoggedIn)
+            {
+                AuthTitleLabel.Text = _session.DeviceName;
+                AuthSubtitleLabel.Text = $"{_session.LocationName} • {_session.Username}";
+                AuthCard.BackgroundColor = Color.FromArgb("#1F2937");
+                LoginButton.IsVisible = false;
+            }
+            else
+            {
+                AuthTitleLabel.Text = "Inicia sesión";
+                AuthSubtitleLabel.Text = "Logeate acá para continuar.";
+                AuthCard.BackgroundColor = Color.FromArgb("#171721");
+                LoginButton.IsVisible = true;
+            }
+        }
+
+        private void StartScanAnimation()
+        {
+            _animationCts?.Cancel();
+            _animationCts = new CancellationTokenSource();
+            _ = AnimateScanLineAsync(_animationCts.Token);
+        }
+
+        private void StopScanAnimation()
+        {
+            _animationCts?.Cancel();
+            _animationCts = null;
+        }
+
+        private async Task AnimateScanLineAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    var travel = ScannerHost.Height;
+                    if (travel <= 0)
+                    {
+                        await Task.Delay(200, token);
+                        continue;
+                    }
+
+                    await ScanLine.TranslateTo(0, travel, 1200, Easing.CubicInOut);
+                    await ScanLine.TranslateTo(0, 0, 1200, Easing.CubicInOut);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+
+        private async Task ShowDetectedAsync(string result)
+        {
+            DetectedTextLabel.Text = $"Detectado: {result}";
+            DetectedOverlay.Opacity = 0;
+            DetectedOverlay.Scale = 0.9;
+            await Task.WhenAll(
+                DetectedOverlay.FadeTo(1, 120, Easing.CubicOut),
+                DetectedOverlay.ScaleTo(1, 120, Easing.CubicOut));
+            await Task.Delay(350);
+            await DetectedOverlay.FadeTo(0, 400, Easing.CubicIn);
         }
     }
 }
