@@ -12,6 +12,7 @@ namespace Trackii.App
         private CameraBarcodeReaderView? _barcodeReader;
         private string? _lastResult;
         private DateTime _lastScanAt;
+        private bool _scannerLoaded;
 
         public ScannerPage()
         {
@@ -30,6 +31,7 @@ namespace Trackii.App
                 {
                     _barcodeReader.IsDetecting = false;
                 }
+                _scannerLoaded = false;
                 return;
             }
 
@@ -44,17 +46,8 @@ namespace Trackii.App
 
         protected override void OnDisappearing()
         {
-            if (_barcodeReader is not null)
-            {
-                _barcodeReader.IsDetecting = false;
-            }
+            StopScanner();
 
-            base.OnDisappearing();
-        }
-
-        protected override void OnDisappearing()
-        {
-            BarcodeReader.IsDetecting = false;
             base.OnDisappearing();
         }
 
@@ -110,7 +103,10 @@ namespace Trackii.App
             }
 
             _barcodeReader.IsDetecting = false;
-            _barcodeReader.IsDetecting = true;
+            if (_scannerLoaded)
+            {
+                _barcodeReader.IsDetecting = true;
+            }
             StatusLabel.Text = "Reiniciando escaneo...";
         }
 
@@ -131,6 +127,8 @@ namespace Trackii.App
             };
 
             reader.BarcodesDetected += OnBarcodesDetected;
+            reader.Loaded += OnScannerLoaded;
+            reader.Unloaded += OnScannerUnloaded;
             ScannerHost.Content = reader;
             _barcodeReader = reader;
         }
@@ -140,11 +138,36 @@ namespace Trackii.App
             if (_barcodeReader is not null)
             {
                 _barcodeReader.BarcodesDetected -= OnBarcodesDetected;
+                _barcodeReader.Loaded -= OnScannerLoaded;
+                _barcodeReader.Unloaded -= OnScannerUnloaded;
             }
 
             ScannerHost.Content = null;
             _barcodeReader = null;
             BuildScanner();
+        }
+
+        private void OnScannerLoaded(object? sender, EventArgs e)
+        {
+            _scannerLoaded = true;
+            if (_barcodeReader is not null)
+            {
+                _barcodeReader.IsDetecting = true;
+            }
+        }
+
+        private void OnScannerUnloaded(object? sender, EventArgs e)
+        {
+            _scannerLoaded = false;
+            StopScanner();
+        }
+
+        private void StopScanner()
+        {
+            if (_barcodeReader is not null)
+            {
+                _barcodeReader.IsDetecting = false;
+            }
         }
     }
 }
