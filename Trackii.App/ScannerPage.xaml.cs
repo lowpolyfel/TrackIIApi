@@ -11,17 +11,13 @@ namespace Trackii.App
     {
         private static readonly Regex OrderRegex = new("^\\d{7}$", RegexOptions.Compiled);
         private static readonly TimeSpan ScanCooldown = TimeSpan.FromMilliseconds(250);
-        private static readonly TimeSpan RestartThreshold = TimeSpan.FromSeconds(5);
-        private static readonly TimeSpan MonitorInterval = TimeSpan.FromMilliseconds(700);
-
         private CameraBarcodeReaderView? _barcodeReader;
-        private CancellationTokenSource? _scannerCts;
         private CancellationTokenSource? _animationCts;
         private CancellationTokenSource? _detectedCts;
         private readonly AppSession _session;
+        private bool _isCapturing;
         private string? _lastResult;
         private DateTime _lastScanAt;
-        private DateTime _lastDetectionAt;
         private bool _hasPermission;
 
         public ScannerPage()
@@ -62,6 +58,11 @@ namespace Trackii.App
 
         private void OnBarcodesDetected(object? sender, BarcodeDetectionEventArgs e)
         {
+            if (!_isCapturing)
+            {
+                return;
+            }
+
             var result = e.Results?.FirstOrDefault()?.Value;
             if (string.IsNullOrWhiteSpace(result))
             {
@@ -114,7 +115,10 @@ namespace Trackii.App
                 return;
             }
 
-            RestartScanner("Reenfocando...");
+            StatusLabel.Text = "Reenfocando...";
+            _barcodeReader.IsDetecting = true;
+            _isCapturing = true;
+            CaptureToggleButton.Text = "Pausar";
         }
 
         private async void OnLoginClicked(object? sender, EventArgs e)
@@ -130,6 +134,21 @@ namespace Trackii.App
             {
                 StatusLabel.Text = $"Error al abrir login: {ex.Message}";
             }
+        }
+
+        private void OnCaptureToggleClicked(object? sender, EventArgs e)
+        {
+            if (_barcodeReader is null)
+            {
+                StatusLabel.Text = "Cámara no disponible.";
+                return;
+            }
+
+            _isCapturing = !_isCapturing;
+            _barcodeReader.IsDetecting = _isCapturing;
+            CaptureToggleButton.Text = _isCapturing ? "Pausar" : "Iniciar";
+            StatusLabel.Text = _isCapturing ? "Escaneando automáticamente..." : "Captura pausada";
+            DetectionLabel.Text = _isCapturing ? "Esperando código..." : "Pulsa iniciar para escanear";
         }
 
         private void BuildScanner()
@@ -174,69 +193,24 @@ namespace Trackii.App
 
             StopScanner();
             BuildScanner();
-            _lastDetectionAt = DateTime.UtcNow;
 
             if (_barcodeReader is not null)
             {
                 _barcodeReader.IsDetecting = true;
             }
 
-            _scannerCts = new CancellationTokenSource();
-            _ = MonitorScannerAsync(_scannerCts.Token);
+            _isCapturing = true;
+            CaptureToggleButton.Text = "Pausar";
         }
 
         private void StopScanner()
         {
-            _scannerCts?.Cancel();
-            _scannerCts = null;
-
             DisposeScanner();
             CancelDetectedOverlay();
-        }
-
-        private void RestartScanner(string status)
-        {
-            if (!_hasPermission)
+            _isCapturing = false;
+            if (CaptureToggleButton is not null)
             {
-                return;
-            }
-
-            DisposeScanner();
-            BuildScanner();
-            _lastDetectionAt = DateTime.UtcNow;
-
-            if (_barcodeReader is not null)
-            {
-                _barcodeReader.IsDetecting = true;
-            }
-
-            StatusLabel.Text = status;
-        }
-
-        private async Task MonitorScannerAsync(CancellationToken token)
-        {
-            while (!token.IsCancellationRequested)
-            {
-                try
-                {
-                    await Task.Delay(MonitorInterval, token);
-                }
-                catch (TaskCanceledException)
-                {
-                    break;
-                }
-
-                if (token.IsCancellationRequested)
-                {
-                    break;
-                }
-
-                if (DateTime.UtcNow - _lastDetectionAt < RestartThreshold)
-                {
-                    continue;
-                }
-
-                MainThread.BeginInvokeOnMainThread(() => RestartScanner("Reiniciando cámara..."));
+                CaptureToggleButton.Text = "Iniciar";
             }
         }
 

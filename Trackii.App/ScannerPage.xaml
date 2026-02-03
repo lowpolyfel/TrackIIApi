@@ -18,7 +18,7 @@
         </VerticalStackLayout>
 
         <Frame Grid.Row="1" BackgroundColor="#F8FAFC" CornerRadius="20" HasShadow="False" Padding="16">
-            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <Frame BackgroundColor="#E2E8F0" CornerRadius="12" HasShadow="False" Padding="8">
                     <Label Text="⚡" FontSize="18" TextColor="#D97706" />
                 </Frame>
@@ -26,6 +26,7 @@
                     <Label x:Name="StatusLabel" Text="Escaneando automáticamente..." FontAttributes="Bold" TextColor="#0F172A" />
                     <Label x:Name="DetectionLabel" Text="Esperando código..." TextColor="#64748B" FontSize="12" />
                 </VerticalStackLayout>
+                <Button x:Name="CaptureToggleButton" Grid.Column="2" Text="Pausar" Clicked="OnCaptureToggleClicked" BackgroundColor="#2563EB" TextColor="White" CornerRadius="14" HeightRequest="36" />
             </Grid>
         </Frame>
 
