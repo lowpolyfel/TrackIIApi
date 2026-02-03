@@ -77,11 +77,6 @@ namespace Trackii.App
                 return;
             }
 
-            if (!await _scanLock.WaitAsync(0))
-            {
-                return;
-            }
-
             try
             {
                 _lastDetectionAt = DateTime.UtcNow;
@@ -93,10 +88,6 @@ namespace Trackii.App
 
                 _lastResult = result;
                 _lastScanAt = now;
-                if (_barcodeReader is not null)
-                {
-                    _barcodeReader.IsDetecting = false;
-                }
 
                 await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
@@ -198,7 +189,6 @@ namespace Trackii.App
                     TryHarder = true,
                     TryInverted = true,
                     Multiple = false,
-                    Formats = BarcodeFormats.All
                 }
             };
 
