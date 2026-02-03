@@ -71,7 +71,7 @@ public partial class RegisterPage : ContentPage
             var deviceName = string.IsNullOrWhiteSpace(request.DeviceName)
                 ? request.Username
                 : request.DeviceName;
-            _session.SetLoggedIn(request.Username, deviceName, location.Name);
+            _session.SetLoggedIn(response.UserId, request.Username, response.DeviceId, deviceName, location.Id, location.Name);
             await DisplayAlert("Registro", $"Registro completado. Usuario {response.UserId}", "OK");
             await Shell.Current.GoToAsync("..");
         }

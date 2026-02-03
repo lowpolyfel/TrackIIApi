@@ -39,7 +39,7 @@ public partial class LoginPage : ContentPage
         try
         {
             var response = await _apiClient.LoginAsync(request, CancellationToken.None);
-            _session.SetLoggedIn(response.Username, response.DeviceName, response.LocationName);
+            _session.SetLoggedIn(response.UserId, response.Username, response.DeviceId, response.DeviceName, response.LocationId, response.LocationName);
             await DisplayAlert("Login", $"Bienvenido {response.Username}", "OK");
         }
         catch (Exception ex)
