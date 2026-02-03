@@ -11,7 +11,7 @@ namespace Trackii.App
     public partial class ScannerPage : ContentPage
     {
         private static readonly Regex OrderRegex = new("^\\d{7}$", RegexOptions.Compiled);
-        private static readonly TimeSpan ScanCooldown = TimeSpan.FromMilliseconds(100);
+        private static readonly TimeSpan ScanCooldown = TimeSpan.FromMilliseconds(25);
         private CameraBarcodeReaderView? _barcodeReader;
         private CancellationTokenSource? _animationCts;
         private CancellationTokenSource? _detectedCts;
