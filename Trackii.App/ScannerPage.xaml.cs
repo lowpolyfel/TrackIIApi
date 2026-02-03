@@ -505,9 +505,31 @@ namespace Trackii.App
 
             try
             {
+                var orderNumber = OrderEntry.Text.Trim();
+                await LoadWorkOrderContextAsync(orderNumber);
+
+                if (_workOrderContext is null || !_workOrderContext.Found)
+                {
+                    StatusLabel.Text = _workOrderContext?.Message ?? "Orden no encontrada.";
+                    return;
+                }
+
+                var status = _workOrderContext.WorkOrderStatus?.Trim().ToUpperInvariant();
+                if (status is "CANCELLED" or "FINISHED")
+                {
+                    StatusLabel.Text = "La orden no está activa.";
+                    return;
+                }
+
+                if (!_workOrderContext.CanProceed)
+                {
+                    StatusLabel.Text = _workOrderContext.Message ?? "La orden no está activa.";
+                    return;
+                }
+
                 var response = await _apiClient.ScrapAsync(new ScrapRequest
                 {
-                    WorkOrderNumber = OrderEntry.Text.Trim(),
+                    WorkOrderNumber = orderNumber,
                     UserId = _session.UserId,
                     DeviceId = _session.DeviceId,
                     Reason = "Scrap desde scanner"
@@ -523,56 +545,18 @@ namespace Trackii.App
 
         private async void OnReworkClicked(object? sender, EventArgs e)
         {
-            if (!_session.IsLoggedIn)
-            {
-                StatusLabel.Text = "Inicia sesión para rework.";
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(OrderEntry.Text))
-            {
-                StatusLabel.Text = "Captura la orden.";
-                return;
-            }
-
-            if (!uint.TryParse(QuantityEntry.Text, out var quantity) || quantity == 0)
-            {
-                StatusLabel.Text = "Cantidad inválida para rework.";
-                return;
-            }
-
-            var reason = await DisplayPromptAsync("Rework", "Motivo de rework (opcional):");
-            var completed = await DisplayAlert("Rework", "¿Terminó el rework?", "Sí", "No");
-
             try
             {
-                var response = await _apiClient.ReworkAsync(new ReworkRequest
-                {
-                    WorkOrderNumber = OrderEntry.Text.Trim(),
-                    Quantity = quantity,
-                    UserId = _session.UserId,
-                    DeviceId = _session.DeviceId,
-                    Reason = reason,
-                    Completed = completed
-                }, CancellationToken.None);
-                StatusLabel.Text = response.Message;
-                DetectionLabel.Text = $"Estado WIP: {response.WipStatus}";
-                await LoadWorkOrderContextAsync(OrderEntry.Text.Trim());
+                var orderNumber = OrderEntry.Text?.Trim();
+                var route = string.IsNullOrWhiteSpace(orderNumber)
+                    ? nameof(ReworkPage)
+                    : $"{nameof(ReworkPage)}?order={Uri.EscapeDataString(orderNumber)}";
+                await Shell.Current.GoToAsync(route);
             }
             catch (Exception ex)
             {
-                StatusLabel.Text = $"No se pudo registrar rework: {ex.Message}";
+                StatusLabel.Text = $"No se pudo abrir rework: {ex.Message}";
             }
-        }
-
-        private void OnPendingClicked(object? sender, EventArgs e)
-        {
-            _isProcessing = false;
-            _ = SetLoadingStateAsync(false);
-            CancelDetectedOverlay();
-            ResetForm();
-            StatusLabel.Text = "Registro marcado como pendiente.";
-            DetectionLabel.Text = "Campos reiniciados.";
         }
 
         private void StartScanAnimation()
