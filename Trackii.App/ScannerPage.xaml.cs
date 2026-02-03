@@ -321,7 +321,7 @@ namespace Trackii.App
                 return;
             }
 
-            if (!await _processingLock.WaitAsync(0))
+            if (!await _scanLock.WaitAsync(0))
             {
                 return;
             }
@@ -343,7 +343,7 @@ namespace Trackii.App
             {
                 _isProcessing = false;
                 await SetLoadingStateAsync(false);
-                _processingLock.Release();
+                _scanLock.Release();
             }
         }
 
