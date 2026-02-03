@@ -9,10 +9,15 @@ namespace Trackii.App
     {
         private static readonly Regex OrderRegex = new("^\\d{7}$", RegexOptions.Compiled);
         private static readonly TimeSpan ScanCooldown = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan RestartThreshold = TimeSpan.FromSeconds(8);
+        private static readonly TimeSpan MonitorInterval = TimeSpan.FromSeconds(1);
+
         private CameraBarcodeReaderView? _barcodeReader;
+        private CancellationTokenSource? _scannerCts;
         private string? _lastResult;
         private DateTime _lastScanAt;
-        private bool _scannerLoaded;
+        private DateTime _lastDetectionAt;
+        private bool _hasPermission;
 
         public ScannerPage()
         {
@@ -23,31 +28,23 @@ namespace Trackii.App
         protected override async void OnAppearing()
         {
             base.OnAppearing();
+
             var status = await Permissions.RequestAsync<Permissions.Camera>();
-            if (status != PermissionStatus.Granted)
+            _hasPermission = status == PermissionStatus.Granted;
+            if (!_hasPermission)
             {
                 StatusLabel.Text = "Permiso de cámara requerido.";
-                if (_barcodeReader is not null)
-                {
-                    _barcodeReader.IsDetecting = false;
-                }
-                _scannerLoaded = false;
+                StopScanner();
                 return;
             }
 
             StatusLabel.Text = "Listo para escanear";
-            ResetScanner();
-            await Task.Delay(250);
-            if (_barcodeReader is not null)
-            {
-                _barcodeReader.IsDetecting = true;
-            }
+            StartScanner();
         }
 
         protected override void OnDisappearing()
         {
             StopScanner();
-
             base.OnDisappearing();
         }
 
@@ -59,7 +56,8 @@ namespace Trackii.App
                 return;
             }
 
-            var now = DateTime.UtcNow;
+            _lastDetectionAt = DateTime.UtcNow;
+            var now = _lastDetectionAt;
             if (result == _lastResult && now - _lastScanAt < ScanCooldown)
             {
                 return;
@@ -102,12 +100,7 @@ namespace Trackii.App
                 return;
             }
 
-            _barcodeReader.IsDetecting = false;
-            if (_scannerLoaded)
-            {
-                _barcodeReader.IsDetecting = true;
-            }
-            StatusLabel.Text = "Reiniciando escaneo...";
+            RestartScanner("Reenfocando...");
         }
 
         private void BuildScanner()
@@ -127,46 +120,93 @@ namespace Trackii.App
             };
 
             reader.BarcodesDetected += OnBarcodesDetected;
-            reader.Loaded += OnScannerLoaded;
-            reader.Unloaded += OnScannerUnloaded;
             ScannerHost.Content = reader;
             _barcodeReader = reader;
         }
 
-        private void ResetScanner()
+        private void DisposeScanner()
         {
             if (_barcodeReader is not null)
             {
                 _barcodeReader.BarcodesDetected -= OnBarcodesDetected;
-                _barcodeReader.Loaded -= OnScannerLoaded;
-                _barcodeReader.Unloaded -= OnScannerUnloaded;
+                _barcodeReader.IsDetecting = false;
             }
 
             ScannerHost.Content = null;
             _barcodeReader = null;
-            BuildScanner();
         }
 
-        private void OnScannerLoaded(object? sender, EventArgs e)
+        private void StartScanner()
         {
-            _scannerLoaded = true;
+            if (!_hasPermission)
+            {
+                return;
+            }
+
+            StopScanner();
+            BuildScanner();
+            _lastDetectionAt = DateTime.UtcNow;
+
             if (_barcodeReader is not null)
             {
                 _barcodeReader.IsDetecting = true;
             }
-        }
 
-        private void OnScannerUnloaded(object? sender, EventArgs e)
-        {
-            _scannerLoaded = false;
-            StopScanner();
+            _scannerCts = new CancellationTokenSource();
+            _ = MonitorScannerAsync(_scannerCts.Token);
         }
 
         private void StopScanner()
         {
+            _scannerCts?.Cancel();
+            _scannerCts = null;
+
+            DisposeScanner();
+        }
+
+        private void RestartScanner(string status)
+        {
+            if (!_hasPermission)
+            {
+                return;
+            }
+
+            DisposeScanner();
+            BuildScanner();
+            _lastDetectionAt = DateTime.UtcNow;
+
             if (_barcodeReader is not null)
             {
-                _barcodeReader.IsDetecting = false;
+                _barcodeReader.IsDetecting = true;
+            }
+
+            StatusLabel.Text = status;
+        }
+
+        private async Task MonitorScannerAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(MonitorInterval, token);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+
+                if (token.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                if (DateTime.UtcNow - _lastDetectionAt < RestartThreshold)
+                {
+                    continue;
+                }
+
+                MainThread.BeginInvokeOnMainThread(() => RestartScanner("Reiniciando cámara..."));
             }
         }
     }
