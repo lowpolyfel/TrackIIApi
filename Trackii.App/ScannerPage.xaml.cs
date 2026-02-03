@@ -172,7 +172,14 @@ namespace Trackii.App
                     TryHarder = false,
                     TryInverted = true,
                     Multiple = false,
-                    Formats = BarcodeFormats.All
+                    Formats = BarcodeFormats.Code128
+                        | BarcodeFormats.Code39
+                        | BarcodeFormats.Code93
+                        | BarcodeFormats.Ean13
+                        | BarcodeFormats.Ean8
+                        | BarcodeFormats.QrCode
+                        | BarcodeFormats.DataMatrix
+                        | BarcodeFormats.Pdf417
                 }
             };
 
