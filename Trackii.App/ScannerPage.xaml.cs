@@ -18,7 +18,7 @@ namespace Trackii.App
         private CancellationTokenSource? _detectedCts;
         private readonly AppSession _session;
         private readonly ApiClient _apiClient;
-        private readonly SemaphoreSlim _processingLock = new(1, 1);
+        private readonly SemaphoreSlim _scanLock = new(1, 1);
         private bool _isProcessing;
         private string? _lastResult;
         private DateTime _lastScanAt;
