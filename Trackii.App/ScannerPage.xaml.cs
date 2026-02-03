@@ -52,6 +52,12 @@ namespace Trackii.App
             base.OnDisappearing();
         }
 
+        protected override void OnDisappearing()
+        {
+            BarcodeReader.IsDetecting = false;
+            base.OnDisappearing();
+        }
+
         private void OnBarcodesDetected(object? sender, BarcodeDetectionEventArgs e)
         {
             var result = e.Results?.FirstOrDefault()?.Value;
