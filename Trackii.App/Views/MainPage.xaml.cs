@@ -1,4 +1,4 @@
-﻿namespace Trackii.App
+﻿namespace Trackii.App.Views
 {
     public partial class MainPage : ContentPage
     {
