@@ -7,7 +7,7 @@ using Trackii.App.Services;
 using ZXing.Net.Maui;
 using ZXing.Net.Maui.Controls;
 
-namespace Trackii.App
+namespace Trackii.App.Views
 {
     [QueryProperty(nameof(InitialOrderNumber), "order")]
     public partial class ReworkPage : ContentPage
