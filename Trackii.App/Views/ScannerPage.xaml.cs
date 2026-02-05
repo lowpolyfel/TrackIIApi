@@ -17,6 +17,7 @@ namespace Trackii.App.Views
         private CancellationTokenSource? _idleResetCts;
         private readonly AppSession _session;
         private object? _cameraView;
+        private CameraBarcodeReaderView? _zxingReader;
         private string? _lastResult;
         private DateTime _lastScanAt;
         private DateTime _lastDetectionAt;
@@ -44,6 +45,11 @@ namespace Trackii.App.Views
                 await DisplayAlert("Permiso requerido", "Se requiere permiso de cámara para escanear.", "OK");
                 StopScanner();
                 return;
+            }
+
+            if (ScannerHost.Content is null)
+            {
+                BuildScanner();
             }
 
             _isProcessingDetection = false;
@@ -94,31 +100,64 @@ namespace Trackii.App.Views
 
         private void BuildScanner()
         {
+            DisposeScanner();
             _cameraView = CreateNativeCameraView();
-            ScannerHost.Content = _cameraView as View;
+            if (_cameraView is View nativeView)
+            {
+                ScannerHost.Content = nativeView;
+                return;
+            }
+
+            BuildZxingFallback();
+        }
+
+        private void BuildZxingFallback()
+        {
+            var reader = new CameraBarcodeReaderView
+            {
+                CameraLocation = CameraLocation.Rear,
+                IsDetecting = true,
+                Options = new BarcodeReaderOptions
+                {
+                    AutoRotate = true,
+                    TryHarder = false,
+                    TryInverted = false,
+                    Multiple = false
+                }
+            };
+
+            reader.BarcodesDetected += OnZxingBarcodesDetected;
+            _zxingReader = reader;
+            ScannerHost.Content = reader;
         }
 
         private View? CreateNativeCameraView()
         {
-            var type = ResolveCameraViewType();
-            if (type is null)
+            try
+            {
+                var type = ResolveCameraViewType();
+                if (type is null)
+                {
+                    return null;
+                }
+
+                if (Activator.CreateInstance(type) is not View view)
+                {
+                    return null;
+                }
+
+                SetProperty(type, view, "CaptureQuality", "Medium");
+                SetProperty(type, view, "ScanInterval", 50);
+                SetProperty(type, view, "IsDetecting", true);
+                SetProperty(type, view, "IsScanning", true);
+                SetProperty(type, view, "IsEnabled", true);
+                TryAttachDetectedHandler(type, view);
+                return view;
+            }
+            catch
             {
                 return null;
             }
-
-            if (Activator.CreateInstance(type) is not View view)
-            {
-                return null;
-            }
-
-            SetProperty(type, view, "CaptureQuality", "Medium");
-            SetProperty(type, view, "ScanInterval", 50);
-            SetProperty(type, view, "IsDetecting", true);
-            SetProperty(type, view, "IsScanning", true);
-            SetProperty(type, view, "IsEnabled", true);
-            TryAttachDetectedHandler(type, view);
-            return view;
-        }
 
         private static Type? ResolveCameraViewType()
         {
@@ -160,18 +199,29 @@ namespace Trackii.App.Views
 
         private void OnNativeBarcodesDetected(object? sender, object args)
         {
-            _ = MainThread.InvokeOnMainThreadAsync(async () => await ProcessDetectedAsync(args));
-        }
-
-        private async Task ProcessDetectedAsync(object args)
-        {
-            if (_isNavigating || _isProcessingDetection)
+            var result = ExtractBarcodeValue(args);
+            if (string.IsNullOrWhiteSpace(result))
             {
                 return;
             }
 
-            var result = ExtractBarcodeValue(args);
+            _ = MainThread.InvokeOnMainThreadAsync(async () => await ProcessDetectedTextAsync(result));
+        }
+
+        private void OnZxingBarcodesDetected(object? sender, BarcodeDetectionEventArgs e)
+        {
+            var result = e.Results?.FirstOrDefault()?.Value?.Trim();
             if (string.IsNullOrWhiteSpace(result))
+            {
+                return;
+            }
+
+            _ = MainThread.InvokeOnMainThreadAsync(async () => await ProcessDetectedTextAsync(result));
+        }
+
+        private async Task ProcessDetectedTextAsync(string result)
+        {
+            if (_isNavigating || _isProcessingDetection)
             {
                 return;
             }
@@ -292,6 +342,11 @@ namespace Trackii.App.Views
 
         private void SetScannerIsDetecting(bool value)
         {
+            if (_zxingReader is not null)
+            {
+                _zxingReader.IsDetecting = value;
+            }
+
             if (_cameraView is null)
             {
                 return;
@@ -301,6 +356,19 @@ namespace Trackii.App.Views
             SetProperty(type, _cameraView, "IsDetecting", value);
             SetProperty(type, _cameraView, "IsScanning", value);
             SetProperty(type, _cameraView, "IsEnabled", value);
+        }
+
+        private void DisposeScanner()
+        {
+            if (_zxingReader is not null)
+            {
+                _zxingReader.BarcodesDetected -= OnZxingBarcodesDetected;
+                _zxingReader.IsDetecting = false;
+                _zxingReader = null;
+            }
+
+            _cameraView = null;
+            ScannerHost.Content = null;
         }
 
         private void StopScanner()
