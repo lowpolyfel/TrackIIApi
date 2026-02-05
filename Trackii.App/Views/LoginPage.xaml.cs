@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Trackii.App.Models;
 using Trackii.App.Services;
 
-namespace Trackii.App;
+namespace Trackii.App.Views;
 
 public partial class LoginPage : ContentPage
 {

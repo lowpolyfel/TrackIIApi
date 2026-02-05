@@ -1,4 +1,6 @@
-﻿namespace Trackii.App
+using Trackii.App.Views;
+
+namespace Trackii.App
 {
     public partial class AppShell : Shell
     {

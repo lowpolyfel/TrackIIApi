@@ -1,4 +1,4 @@
-namespace Trackii.Api
+namespace Trackii.Api.Models
 {
     public class WeatherForecast
     {
