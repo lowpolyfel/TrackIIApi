@@ -2,7 +2,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Trackii.Api.Data;
+using Trackii.Api.Interfaces;
 using Trackii.Api.Models;
+using Trackii.Api.Repositories;
+using Trackii.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +33,10 @@ builder.Services.AddDbContext<TrackiiDbContext>(options =>
 
 // Add Identity and Password Hasher
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IScannerRepository, ScannerRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IScannerService, ScannerService>();
 
 // Configure logging
 builder.Services.AddLogging(logging =>
