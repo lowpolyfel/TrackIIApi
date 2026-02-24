@@ -30,6 +30,8 @@ public sealed class ScannerRepository : IScannerRepository
             .ThenInclude(p => p!.Subfamily)
             .ThenInclude(sf => sf!.ActiveRoute)
             .Include(wo => wo.WipItem)
+            .ThenInclude(wip => wip!.CurrentStep)
+            .ThenInclude(step => step!.Location)
             .FirstOrDefaultAsync(wo => wo.WoNumber == woNumber, cancellationToken);
 
     public Task<Device?> GetActiveDeviceWithLocationAsync(uint deviceId, CancellationToken cancellationToken) =>
@@ -39,6 +41,7 @@ public sealed class ScannerRepository : IScannerRepository
 
     public Task<List<RouteStep>> GetRouteStepsByRouteIdAsync(uint routeId, CancellationToken cancellationToken) =>
         _dbContext.RouteSteps
+            .Include(step => step.Location)
             .Where(step => step.RouteId == routeId)
             .OrderBy(step => step.StepNumber)
             .ToListAsync(cancellationToken);
@@ -46,6 +49,12 @@ public sealed class ScannerRepository : IScannerRepository
     public Task<WipStepExecution?> GetExecutionByWipAndStepAsync(uint wipItemId, uint routeStepId, CancellationToken cancellationToken) =>
         _dbContext.WipStepExecutions
             .FirstOrDefaultAsync(exec => exec.WipItemId == wipItemId && exec.RouteStepId == routeStepId, cancellationToken);
+
+    public Task<WipStepExecution?> GetLatestExecutionByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken) =>
+        _dbContext.WipStepExecutions
+            .Where(exec => exec.WipItemId == wipItemId)
+            .OrderByDescending(exec => exec.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
     public Task<Location?> GetLocationByIdAsync(uint locationId, CancellationToken cancellationToken) =>
         _dbContext.Locations.FirstOrDefaultAsync(location => location.Id == locationId, cancellationToken);
@@ -63,7 +72,10 @@ public sealed class ScannerRepository : IScannerRepository
             .FirstOrDefaultAsync(wo => wo.WoNumber == woNumber, cancellationToken);
 
     public Task<Product?> GetActiveProductWithSubfamilyAsync(string partNumber, CancellationToken cancellationToken) =>
-        _dbContext.Products.Include(p => p.Subfamily).FirstOrDefaultAsync(p => p.PartNumber == partNumber && p.Active, cancellationToken);
+        _dbContext.Products
+            .Include(p => p.Subfamily)
+            .ThenInclude(sf => sf!.Family)
+            .FirstOrDefaultAsync(p => p.PartNumber == partNumber && p.Active, cancellationToken);
 
     public void AddWorkOrder(WorkOrder workOrder) => _dbContext.WorkOrders.Add(workOrder);
 

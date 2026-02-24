@@ -12,6 +12,7 @@ public interface IScannerRepository
     Task<Device?> GetActiveDeviceWithLocationAsync(uint deviceId, CancellationToken cancellationToken);
     Task<List<RouteStep>> GetRouteStepsByRouteIdAsync(uint routeId, CancellationToken cancellationToken);
     Task<WipStepExecution?> GetExecutionByWipAndStepAsync(uint wipItemId, uint routeStepId, CancellationToken cancellationToken);
+    Task<WipStepExecution?> GetLatestExecutionByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken);
     Task<Location?> GetLocationByIdAsync(uint locationId, CancellationToken cancellationToken);
 
     Task<User?> GetActiveUserByIdAsync(uint userId, CancellationToken cancellationToken);
