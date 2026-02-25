@@ -187,10 +187,7 @@ public sealed class ScannerService : IScannerService
 
             if (workOrder is null)
             {
-                if (!IsAlloyTabletAllowed(device, product))
-                {
-                    return ServiceResponse<RegisterScanResponse>.Fail("Orden no encontrada.");
-                }
+               
 
                 workOrder = new WorkOrder
                 {
