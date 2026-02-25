@@ -143,7 +143,7 @@ public sealed class ScannerService : IScannerService
             return ServiceResponse<RegisterScanResponse>.Fail("Orden y número de parte son requeridos.");
         }
 
-        if (request.Quantity == 0)
+        if (request.Quantity <= 0)
         {
             return ServiceResponse<RegisterScanResponse>.Fail("Cantidad inválida.");
         }
@@ -280,7 +280,7 @@ public sealed class ScannerService : IScannerService
                 DeviceId = device.Id,
                 LocationId = device.LocationId,
                 CreatedAt = DateTime.UtcNow,
-                QtyIn = request.Quantity,
+                QtyIn = (uint)request.Quantity,
                 QtyScrap = 0
             });
 
