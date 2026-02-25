@@ -187,11 +187,7 @@ public sealed class ScannerService : IScannerService
 
             if (workOrder is null)
             {
-                if (!IsAlloyTabletAllowed(device, product))
-                {
-                    return ServiceResponse<RegisterScanResponse>.Fail("Orden no encontrada.");
-                }
-
+                // Se eliminó la restricción de IsAlloyTabletAllowed para que el ruteo sea dinámico.
                 workOrder = new WorkOrder
                 {
                     WoNumber = workOrderNumber,
@@ -434,19 +430,5 @@ public sealed class ScannerService : IScannerService
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
-    }
-
-    private static bool IsAlloyTabletAllowed(Device device, Product product)
-    {
-        var deviceLocation = device.Location?.Name?.Trim();
-        var isAlloyDevice = string.Equals(deviceLocation, "Alloy", StringComparison.OrdinalIgnoreCase);
-
-        var subfamilyName = product.Subfamily?.Name ?? string.Empty;
-        var familyName = product.Subfamily?.Family?.Name ?? string.Empty;
-
-        var isTabletProduct = subfamilyName.Contains("tablet", StringComparison.OrdinalIgnoreCase)
-                              || familyName.Contains("tablet", StringComparison.OrdinalIgnoreCase);
-
-        return isAlloyDevice && isTabletProduct;
     }
 }
