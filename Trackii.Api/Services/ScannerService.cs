@@ -143,7 +143,7 @@ public sealed class ScannerService : IScannerService
             return ServiceResponse<RegisterScanResponse>.Fail("Orden y número de parte son requeridos.");
         }
 
-        if (request.Quantity == 0)
+        if (request.Quantity <= 0)
         {
             return ServiceResponse<RegisterScanResponse>.Fail("Cantidad inválida.");
         }
@@ -280,7 +280,7 @@ public sealed class ScannerService : IScannerService
                 DeviceId = device.Id,
                 LocationId = device.LocationId,
                 CreatedAt = DateTime.UtcNow,
-                QtyIn = request.Quantity,
+                QtyIn = (uint)request.Quantity,
                 QtyScrap = 0
             });
 
@@ -438,9 +438,14 @@ public sealed class ScannerService : IScannerService
 
     private static bool IsAlloyTabletAllowed(Device device, Product product)
     {
-        var isAlloyDevice = device.Location?.Name?.Equals("Alloy", StringComparison.OrdinalIgnoreCase) == true;
-        var isTabletProduct = product.Subfamily?.Name.Contains("tablet", StringComparison.OrdinalIgnoreCase) == true
-                              || product.Subfamily?.Family?.Name.Contains("tablet", StringComparison.OrdinalIgnoreCase) == true;
+        var deviceLocation = device.Location?.Name?.Trim();
+        var isAlloyDevice = string.Equals(deviceLocation, "Alloy", StringComparison.OrdinalIgnoreCase);
+
+        var subfamilyName = product.Subfamily?.Name ?? string.Empty;
+        var familyName = product.Subfamily?.Family?.Name ?? string.Empty;
+
+        var isTabletProduct = subfamilyName.Contains("tablet", StringComparison.OrdinalIgnoreCase)
+                              || familyName.Contains("tablet", StringComparison.OrdinalIgnoreCase);
 
         return isAlloyDevice && isTabletProduct;
     }
