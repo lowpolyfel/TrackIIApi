@@ -44,7 +44,18 @@ public sealed class ScannerService : IScannerService
                 null,
                 null,
                 null,
+                null,
                 null));
+        }
+
+        string? currentLocationName = null;
+        string? nextLocationName = null;
+
+        if (product.Subfamily.ActiveRouteId is not null)
+        {
+            var routeSteps = await _scannerRepository.GetRouteStepsByRouteIdAsync(product.Subfamily.ActiveRouteId.Value, cancellationToken);
+            currentLocationName = routeSteps.FirstOrDefault(step => step.StepNumber == 1)?.Location?.Name;
+            nextLocationName = routeSteps.FirstOrDefault(step => step.StepNumber == 2)?.Location?.Name;
         }
 
         return ServiceResponse<PartLookupResponse>.Ok(new PartLookupResponse(
@@ -58,7 +69,9 @@ public sealed class ScannerService : IScannerService
             product.Subfamily.Family.Name,
             product.Subfamily.Family.Area.Id,
             product.Subfamily.Family.Area.Name,
-            product.Subfamily.ActiveRouteId));
+            product.Subfamily.ActiveRouteId,
+            currentLocationName,
+            nextLocationName));
     }
 
     public async Task<ServiceResponse<WorkOrderContextResponse>> GetWorkOrderContextAsync(string woNumber, uint deviceId, CancellationToken cancellationToken)
@@ -78,6 +91,8 @@ public sealed class ScannerService : IScannerService
                 PreviousQuantity: 0,
                 CurrentStepNumber: 1,
                 CurrentStepName: "Paso 1",
+                CurrentLocationName: "Paso 1",
+                RouteName: null,
                 NextSteps: []));
         }
 
@@ -94,6 +109,7 @@ public sealed class ScannerService : IScannerService
 
         var currentStepNumber = 1;
         var currentStepName = routeSteps[0].Location?.Name ?? $"Paso {currentStepNumber}";
+        var currentLocationName = routeSteps[0].Location?.Name ?? $"Location {routeSteps[0].LocationId}";
         var previousQuantity = 0;
         var nextSteps = routeSteps.Select(step => new NextRouteStepResponse(
                 step.Id,
@@ -110,6 +126,7 @@ public sealed class ScannerService : IScannerService
             {
                 currentStepNumber = (int)currentStep.StepNumber;
                 currentStepName = currentStep.Location?.Name ?? $"Paso {currentStep.StepNumber}";
+                currentLocationName = currentStep.Location?.Name ?? $"Location {currentStep.LocationId}";
                 nextSteps = routeSteps
                     .Where(step => step.StepNumber > currentStep.StepNumber)
                     .Select(step => new NextRouteStepResponse(
@@ -133,39 +150,32 @@ public sealed class ScannerService : IScannerService
             PreviousQuantity: previousQuantity,
             CurrentStepNumber: currentStepNumber,
             CurrentStepName: currentStepName,
+            CurrentLocationName: currentLocationName,
+            RouteName: workOrder.Product?.Subfamily?.ActiveRoute?.Name,
             NextSteps: nextSteps));
     }
 
     public async Task<ServiceResponse<RegisterScanResponse>> RegisterScanAsync(RegisterScanRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.WorkOrderNumber) || string.IsNullOrWhiteSpace(request.PartNumber))
-        {
             return ServiceResponse<RegisterScanResponse>.Fail("Orden y número de parte son requeridos.");
-        }
 
-        if (request.Quantity == 0)
-        {
+        if (request.Quantity <= 0)
             return ServiceResponse<RegisterScanResponse>.Fail("Cantidad inválida.");
-        }
 
         await using var transaction = await _scannerRepository.BeginTransactionAsync(cancellationToken);
         try
         {
             var user = await _scannerRepository.GetActiveUserByIdAsync(request.UserId, cancellationToken);
-            if (user is null)
-            {
-                return ServiceResponse<RegisterScanResponse>.Fail("Usuario inválido.", ServiceErrorType.Unauthorized);
-            }
+            if (user is null) return ServiceResponse<RegisterScanResponse>.Fail("Usuario inválido.", ServiceErrorType.Unauthorized);
 
             var device = await _scannerRepository.GetActiveDeviceByIdAsync(request.DeviceId, cancellationToken);
-            if (device is null || device.UserId != user.Id)
-            {
-                return ServiceResponse<RegisterScanResponse>.Fail("Dispositivo inválido.", ServiceErrorType.Unauthorized);
-            }
+            if (device is null || device.UserId != user.Id) return ServiceResponse<RegisterScanResponse>.Fail("Dispositivo inválido.", ServiceErrorType.Unauthorized);
 
             var workOrderNumber = request.WorkOrderNumber.Trim();
             var partNumber = request.PartNumber.Trim();
 
+            // 1. BUSCAR PRODUCTO, SUBFAMILIA Y RUTA PRIMERO
             var product = await _scannerRepository.GetActiveProductWithSubfamilyAsync(partNumber, cancellationToken);
             if (product?.Subfamily is null)
             {
@@ -175,84 +185,79 @@ public sealed class ScannerService : IScannerService
                     CreationDateTime = DateTime.UtcNow,
                     Active = true
                 });
+                _scannerRepository.AddScanEvent(new ScanEvent
+                {
+                    ScanType = ScanType.Error.ToDatabaseValue(),
+                    Ts = DateTime.UtcNow
+                });
                 await _scannerRepository.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
                 return ServiceResponse<RegisterScanResponse>.Fail("Parte no registrada");
             }
 
-            var workOrder = await _scannerRepository.GetWorkOrderForRegisterAsync(workOrderNumber, cancellationToken);
-            var wipItem = workOrder is null
-                ? null
-                : await _scannerRepository.GetWipItemWithExecutionsByWorkOrderIdAsync(workOrder.Id, cancellationToken);
-
-            if (workOrder is null)
-            {
-                if (!IsAlloyTabletAllowed(device, product))
-                {
-                    return ServiceResponse<RegisterScanResponse>.Fail("Orden no encontrada.");
-                }
-
-                workOrder = new WorkOrder
-                {
-                    WoNumber = workOrderNumber,
-                    ProductId = product.Id,
-                    Status = WorkOrderStatus.InProgress.ToDatabaseValue()
-                };
-                _scannerRepository.AddWorkOrder(workOrder);
-                await _scannerRepository.SaveChangesAsync(cancellationToken);
-            }
-
-            if (workOrder.Status.IsOneOf(WorkOrderStatus.Cancelled, WorkOrderStatus.Finished))
-            {
-                return ServiceResponse<RegisterScanResponse>.Fail("La orden no permite avanzar.");
-            }
-
-            if (!string.Equals(product.PartNumber, partNumber, StringComparison.OrdinalIgnoreCase) || workOrder.ProductId != product.Id)
-            {
-                return ServiceResponse<RegisterScanResponse>.Fail("El número de parte no corresponde a la orden.");
-            }
-
             var routeId = product.Subfamily.ActiveRouteId;
-            if (routeId is null)
-            {
-                return ServiceResponse<RegisterScanResponse>.Fail("La subfamilia no tiene ruta activa.");
-            }
+            if (routeId is null) return ServiceResponse<RegisterScanResponse>.Fail("La subfamilia no tiene ruta activa.");
 
             var steps = await _scannerRepository.GetRouteStepsByRouteIdAsync(routeId.Value, cancellationToken);
-            if (steps.Count == 0)
+            if (steps.Count == 0) return ServiceResponse<RegisterScanResponse>.Fail("La ruta no tiene pasos configurados.");
+
+            // 2. BUSCAR ORDEN EXISTENTE Y VALIDAR REGLAS PREVIAS
+            var workOrder = await _scannerRepository.GetWorkOrderForRegisterAsync(workOrderNumber, cancellationToken);
+            var wipItem = workOrder is null ? null : await _scannerRepository.GetWipItemWithExecutionsByWorkOrderIdAsync(workOrder.Id, cancellationToken);
+
+            if (workOrder is not null)
             {
-                return ServiceResponse<RegisterScanResponse>.Fail("La ruta no tiene pasos configurados.");
+                if (workOrder.Status.IsOneOf(WorkOrderStatus.Cancelled, WorkOrderStatus.Finished))
+                    return ServiceResponse<RegisterScanResponse>.Fail("La orden no permite avanzar.");
+
+                if (workOrder.ProductId != product.Id)
+                    return ServiceResponse<RegisterScanResponse>.Fail("El número de parte no corresponde a la orden.");
+
+                if (wipItem is not null && wipItem.Status.IsOneOf(WipItemStatus.Finished, WipItemStatus.Scrapped, WipItemStatus.Hold))
+                    return ServiceResponse<RegisterScanResponse>.Fail("El WIP no permite avanzar.");
             }
 
-            if (wipItem is not null && wipItem.Status.IsOneOf(WipItemStatus.Finished, WipItemStatus.Scrapped, WipItemStatus.Hold))
-            {
-                return ServiceResponse<RegisterScanResponse>.Fail("El WIP no permite avanzar.");
-            }
-
+            // 3. DEFINIR EL PASO Y VALIDAR LA UBICACIÓN DE LA TABLETA
             var isNew = wipItem is null;
             RouteStep targetStep;
+
             if (isNew)
             {
                 targetStep = steps.First();
+                // VALIDACIÓN CLAVE: Si la orden es nueva, la tableta DEBE estar en el Paso 1
+                if (targetStep.LocationId != device.LocationId)
+                {
+                    return ServiceResponse<RegisterScanResponse>.Fail($"Para crear la orden, la tableta debe estar en el primer paso: {targetStep.Location?.Name}");
+                }
             }
             else
             {
                 var currentStep = steps.FirstOrDefault(step => step.Id == wipItem!.CurrentStepId);
-                if (currentStep is null)
-                {
-                    return ServiceResponse<RegisterScanResponse>.Fail("Paso actual inválido.");
-                }
+                if (currentStep is null) return ServiceResponse<RegisterScanResponse>.Fail("Paso actual inválido.");
 
                 targetStep = steps.FirstOrDefault(step => step.StepNumber == currentStep.StepNumber + 1)!;
-                if (targetStep is null)
-                {
-                    return ServiceResponse<RegisterScanResponse>.Fail("La orden ya está en el último paso.");
-                }
+                if (targetStep is null) return ServiceResponse<RegisterScanResponse>.Fail("La orden ya está en el último paso.");
+
+                if (targetStep.LocationId != device.LocationId)
+                    return ServiceResponse<RegisterScanResponse>.Fail("El dispositivo no corresponde al paso actual.");
+
+                // Validar cantidad
+                var latestExecution = await _scannerRepository.GetLatestExecutionByWipItemIdAsync(wipItem!.Id, cancellationToken);
+                if (latestExecution is not null && request.Quantity > latestExecution.QtyIn)
+                    return ServiceResponse<RegisterScanResponse>.Fail($"La cantidad ({request.Quantity}) supera el paso anterior ({latestExecution.QtyIn}).");
             }
 
-            if (targetStep.LocationId != device.LocationId)
+            // 4. TODO ESTÁ VÁLIDO -> AHORA SÍ, INSERTAMOS EN BASE DE DATOS
+            if (workOrder is null)
             {
-                return ServiceResponse<RegisterScanResponse>.Fail("El dispositivo no corresponde al paso actual.");
+                workOrder = new WorkOrder
+                {
+                    WoNumber = workOrderNumber,
+                    ProductId = product.Id,
+                    Status = WorkOrderStatus.Open.ToDatabaseValue()
+                };
+                _scannerRepository.AddWorkOrder(workOrder);
+                await _scannerRepository.SaveChangesAsync(cancellationToken); // Genera ID
             }
 
             if (isNew)
@@ -270,6 +275,10 @@ public sealed class ScannerService : IScannerService
             else
             {
                 wipItem!.CurrentStepId = targetStep.Id;
+                if (targetStep.StepNumber > 1 && workOrder.Status == WorkOrderStatus.Open.ToDatabaseValue())
+                {
+                    workOrder.Status = WorkOrderStatus.InProgress.ToDatabaseValue();
+                }
             }
 
             _scannerRepository.AddWipStepExecution(new WipStepExecution
@@ -280,7 +289,7 @@ public sealed class ScannerService : IScannerService
                 DeviceId = device.Id,
                 LocationId = device.LocationId,
                 CreatedAt = DateTime.UtcNow,
-                QtyIn = request.Quantity,
+                QtyIn = (uint)request.Quantity,
                 QtyScrap = 0
             });
 
@@ -317,6 +326,7 @@ public sealed class ScannerService : IScannerService
             throw;
         }
     }
+
 
     public async Task<ServiceResponse<ScrapResponse>> ScrapAsync(ScrapRequest request, CancellationToken cancellationToken)
     {
@@ -434,14 +444,5 @@ public sealed class ScannerService : IScannerService
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
-    }
-
-    private static bool IsAlloyTabletAllowed(Device device, Product product)
-    {
-        var isAlloyDevice = device.Location?.Name?.Equals("Alloy", StringComparison.OrdinalIgnoreCase) == true;
-        var isTabletProduct = product.Subfamily?.Name.Contains("tablet", StringComparison.OrdinalIgnoreCase) == true
-                              || product.Subfamily?.Family?.Name.Contains("tablet", StringComparison.OrdinalIgnoreCase) == true;
-
-        return isAlloyDevice && isTabletProduct;
     }
 }
