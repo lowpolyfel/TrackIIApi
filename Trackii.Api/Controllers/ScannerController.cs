@@ -23,9 +23,9 @@ public sealed class ScannerController : ControllerBase
     }
 
     [HttpGet("work-orders/{woNumber}/context")]
-    public async Task<IActionResult> GetWorkOrderContext(string woNumber, [FromQuery] uint deviceId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetWorkOrderContext(string woNumber, [FromQuery] uint deviceId, [FromQuery] string? partNumber, CancellationToken cancellationToken)
     {
-        var response = await _scannerService.GetWorkOrderContextAsync(woNumber, deviceId, cancellationToken);
+        var response = await _scannerService.GetWorkOrderContextAsync(woNumber, partNumber, deviceId, cancellationToken);
         return ToActionResult(response);
     }
 

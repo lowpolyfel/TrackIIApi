@@ -34,20 +34,18 @@ public sealed class ScannerService : IScannerService
             await _scannerRepository.SaveChangesAsync(cancellationToken);
 
             return ServiceResponse<PartLookupResponse>.Ok(new PartLookupResponse(
-                    false,                                                      // 1. Found
-                    "El producto no está dado de alta. Contacta a ingeniería.", // 2. Message
-                    normalized,                                                 // 3. PartNumber
-                    null,                                                       // 4. ProductId
-                    null,                                                       // 5. SubfamilyId
-                    null,                                                       // 6. SubfamilyName
-                    null,                                                       // 7. FamilyId
-                    null,                                                       // 8. FamilyName
-                    null,                                                       // 9. AreaId
-                    null,                                                       // 10. AreaName
-                    null,                                                       // 11. ActiveRouteId
-                    null,                                                       // 12. CurrentLocationName 
-                    null                                                        // 13. NextLocationName 
-                ));
+                false,
+                "El producto no está dado de alta. Contacta a ingeniería.",
+                normalized,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
         }
 
         string? currentLocationName = null;
@@ -76,7 +74,7 @@ public sealed class ScannerService : IScannerService
             nextLocationName));
     }
 
-    public async Task<ServiceResponse<WorkOrderContextResponse>> GetWorkOrderContextAsync(string woNumber, uint deviceId, CancellationToken cancellationToken)
+    public async Task<ServiceResponse<WorkOrderContextResponse>> GetWorkOrderContextAsync(string woNumber, string? partNumber, uint deviceId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(woNumber))
         {
@@ -85,7 +83,11 @@ public sealed class ScannerService : IScannerService
 
         var normalizedWorkOrder = woNumber.Trim();
         var workOrder = await _scannerRepository.GetWorkOrderContextAsync(normalizedWorkOrder, cancellationToken);
-        var product = workOrder?.Product ?? await _scannerRepository.GetActiveProductWithSubfamilyAsync(normalizedWorkOrder, cancellationToken);
+        Product? product = workOrder?.Product;
+        if (product is null && !string.IsNullOrWhiteSpace(partNumber))
+        {
+            product = await _scannerRepository.GetActiveProductWithSubfamilyAsync(partNumber.Trim(), cancellationToken);
+        }
 
         var currentStepName = "Paso 1";
         var currentLocationName = "Paso 1";
