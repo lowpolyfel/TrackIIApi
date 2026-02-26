@@ -75,6 +75,9 @@ public sealed class ScannerRepository : IScannerRepository
         _dbContext.Products
             .Include(p => p.Subfamily)
             .ThenInclude(sf => sf!.Family)
+            .ThenInclude(f => f!.Area)
+            .Include(p => p.Subfamily)
+            .ThenInclude(sf => sf!.ActiveRoute)
             .FirstOrDefaultAsync(p => p.PartNumber == partNumber && p.Active, cancellationToken);
 
     public void AddWorkOrder(WorkOrder workOrder) => _dbContext.WorkOrders.Add(workOrder);
