@@ -45,27 +45,19 @@ public sealed class ScannerService : IScannerService
                 null,
                 null,
                 null,
-                null, // NUEVO: Para CurrentLocationName
-                null  // NUEVO: Para NextLocationName
-            ));
-
+                null));
         }
 
-        // === NUEVO: Buscar los nombres de las localidades para mandarlos a la App ===
         string? currentLocationName = null;
         string? nextLocationName = null;
 
-        if (product.Subfamily.ActiveRouteId.HasValue)
+        if (product.Subfamily.ActiveRouteId is not null)
         {
             var routeSteps = await _scannerRepository.GetRouteStepsByRouteIdAsync(product.Subfamily.ActiveRouteId.Value, cancellationToken);
-            if (routeSteps.Count > 0)
-            {
-                currentLocationName = routeSteps.FirstOrDefault(s => s.StepNumber == 1)?.Location?.Name;
-                nextLocationName = routeSteps.FirstOrDefault(s => s.StepNumber == 2)?.Location?.Name;
-            }
+            currentLocationName = routeSteps.FirstOrDefault(step => step.StepNumber == 1)?.Location?.Name;
+            nextLocationName = routeSteps.FirstOrDefault(step => step.StepNumber == 2)?.Location?.Name;
         }
 
-        // === Retorno actualizado con los 13 parámetros requeridos ===
         return ServiceResponse<PartLookupResponse>.Ok(new PartLookupResponse(
             true,
             null,
@@ -78,9 +70,8 @@ public sealed class ScannerService : IScannerService
             product.Subfamily.Family.Area.Id,
             product.Subfamily.Family.Area.Name,
             product.Subfamily.ActiveRouteId,
-            currentLocationName, // NUEVO: Localidad actual enviada a la app
-            nextLocationName     // NUEVO: Siguiente localidad enviada a la app
-        ));
+            currentLocationName,
+            nextLocationName));
     }
 
     public async Task<ServiceResponse<WorkOrderContextResponse>> GetWorkOrderContextAsync(string woNumber, uint deviceId, CancellationToken cancellationToken)
@@ -95,14 +86,44 @@ public sealed class ScannerService : IScannerService
 
         if (workOrder is null)
         {
+            var product = await _scannerRepository.GetActiveProductWithSubfamilyAsync(normalizedWorkOrder, cancellationToken);
+
+            var currentStepName = "Paso 1";
+            var currentLocationName = "Paso 1";
+            var routeName = product?.Subfamily?.ActiveRoute?.Name ?? product?.Subfamily?.ActiveRouteId?.ToString() ?? "Sin ruta";
+            var nextSteps = new List<NextRouteStepResponse>();
+
+            if (product?.Subfamily?.ActiveRouteId is not null)
+            {
+                var routeSteps = await _scannerRepository.GetRouteStepsByRouteIdAsync(product.Subfamily.ActiveRouteId.Value, cancellationToken);
+                if (routeSteps.Count > 0)
+                {
+                    var step1 = routeSteps.FirstOrDefault(s => s.StepNumber == 1);
+                    currentStepName = step1?.Location?.Name ?? "Paso 1";
+                    currentLocationName = step1?.Location?.Name ?? "Paso 1";
+
+                    var step2 = routeSteps.FirstOrDefault(s => s.StepNumber == 2);
+                    if (step2 is not null)
+                    {
+                        var step2LocationName = step2.Location?.Name ?? "Paso 2";
+                        nextSteps.Add(new NextRouteStepResponse(
+                            step2.Id,
+                            (int)step2.StepNumber,
+                            step2LocationName,
+                            step2.LocationId,
+                            step2LocationName));
+                    }
+                }
+            }
+
             return ServiceResponse<WorkOrderContextResponse>.Ok(new WorkOrderContextResponse(
                 IsNew: true,
                 PreviousQuantity: 0,
                 CurrentStepNumber: 1,
-                CurrentStepName: "Paso 1",
-                CurrentLocationName: "Paso 1",
-                RouteName: null,
-                NextSteps: []));
+                CurrentStepName: currentStepName,
+                CurrentLocationName: currentLocationName,
+                RouteName: routeName,
+                NextSteps: nextSteps));
         }
 
         if (workOrder.Product?.Subfamily?.ActiveRouteId is null)
