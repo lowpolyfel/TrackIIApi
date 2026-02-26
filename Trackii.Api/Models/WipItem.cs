@@ -14,5 +14,6 @@ public sealed class WipItem
     public RouteStep? CurrentStep { get; set; }
     public ICollection<WipStepExecution> StepExecutions { get; set; } = new List<WipStepExecution>();
     public ICollection<WipReworkLog> ReworkLogs { get; set; } = new List<WipReworkLog>();
+    public ICollection<ScrapLog> ScrapLogs { get; set; } = new List<ScrapLog>();
     public ICollection<ScanEvent> ScanEvents { get; set; } = new List<ScanEvent>();
 }

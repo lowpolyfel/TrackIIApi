@@ -25,6 +25,11 @@ public interface IScannerRepository
     void AddWipStepExecution(WipStepExecution execution);
     void AddScanEvent(ScanEvent scanEvent);
     Task<WipItem?> GetWipItemByWorkOrderIdAsync(uint workOrderId, CancellationToken cancellationToken);
+    Task<List<ErrorCategory>> GetActiveErrorCategoriesAsync(CancellationToken cancellationToken);
+    Task<List<ErrorCode>> GetActiveErrorCodesByCategoryAsync(uint categoryId, CancellationToken cancellationToken);
+    Task<ErrorCode?> GetActiveErrorCodeByIdAsync(uint errorCodeId, CancellationToken cancellationToken);
+    void AddScrapLog(ScrapLog scrapLog);
+    Task ScrapOrderAsync(WorkOrder workOrder, WipItem wipItem, User user, uint errorCodeId, uint quantity, string? comments, CancellationToken cancellationToken);
     void AddReworkLog(WipReworkLog log);
 
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);

@@ -7,6 +7,8 @@ public interface IScannerService
     Task<ServiceResponse<PartLookupResponse>> GetPartInfoAsync(string partNumber, CancellationToken cancellationToken);
     Task<ServiceResponse<WorkOrderContextResponse>> GetWorkOrderContextAsync(string woNumber, string? partNumber, uint deviceId, CancellationToken cancellationToken);
     Task<ServiceResponse<RegisterScanResponse>> RegisterScanAsync(RegisterScanRequest request, CancellationToken cancellationToken);
-    Task<ServiceResponse<ScrapResponse>> ScrapAsync(ScrapRequest request, CancellationToken cancellationToken);
+    Task<ServiceResponse<IReadOnlyList<ErrorCategoryResponse>>> GetErrorCategoriesAsync(CancellationToken cancellationToken);
+    Task<ServiceResponse<IReadOnlyList<ErrorCodeResponse>>> GetErrorCodesByCategoryAsync(uint categoryId, CancellationToken cancellationToken);
+    Task<ServiceResponse<ScrapResponse>> ScrapOrderAsync(ScrapOrderRequest request, CancellationToken cancellationToken);
     Task<ServiceResponse<ReworkResponse>> ReworkAsync(ReworkRequest request, CancellationToken cancellationToken);
 }

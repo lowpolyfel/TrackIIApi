@@ -29,6 +29,21 @@ public sealed class ScannerController : ControllerBase
         return ToActionResult(response);
     }
 
+
+    [HttpGet("error-categories")]
+    public async Task<IActionResult> GetErrorCategories(CancellationToken cancellationToken)
+    {
+        var response = await _scannerService.GetErrorCategoriesAsync(cancellationToken);
+        return ToActionResult(response);
+    }
+
+    [HttpGet("error-categories/{categoryId}/codes")]
+    public async Task<IActionResult> GetErrorCodesByCategory(uint categoryId, CancellationToken cancellationToken)
+    {
+        var response = await _scannerService.GetErrorCodesByCategoryAsync(categoryId, cancellationToken);
+        return ToActionResult(response);
+    }
+
     [HttpPost("register")]
     public async Task<IActionResult> RegisterScan([FromBody] RegisterScanRequest request, CancellationToken cancellationToken)
     {
@@ -42,14 +57,14 @@ public sealed class ScannerController : ControllerBase
     }
 
     [HttpPost("scrap")]
-    public async Task<IActionResult> Scrap([FromBody] ScrapRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Scrap([FromBody] ScrapOrderRequest request, CancellationToken cancellationToken)
     {
         if (request is null)
         {
             return BadRequest("Solicitud inválida.");
         }
 
-        var response = await _scannerService.ScrapAsync(request, cancellationToken);
+        var response = await _scannerService.ScrapOrderAsync(request, cancellationToken);
         return ToActionResult(response);
     }
 
