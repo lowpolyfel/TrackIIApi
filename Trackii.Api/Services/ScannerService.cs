@@ -44,7 +44,18 @@ public sealed class ScannerService : IScannerService
                 null,
                 null,
                 null,
+                null,
                 null));
+        }
+
+        string? currentLocationName = null;
+        string? nextLocationName = null;
+
+        if (product.Subfamily.ActiveRouteId is not null)
+        {
+            var routeSteps = await _scannerRepository.GetRouteStepsByRouteIdAsync(product.Subfamily.ActiveRouteId.Value, cancellationToken);
+            currentLocationName = routeSteps.FirstOrDefault(step => step.StepNumber == 1)?.Location?.Name;
+            nextLocationName = routeSteps.FirstOrDefault(step => step.StepNumber == 2)?.Location?.Name;
         }
 
         return ServiceResponse<PartLookupResponse>.Ok(new PartLookupResponse(
@@ -58,7 +69,9 @@ public sealed class ScannerService : IScannerService
             product.Subfamily.Family.Name,
             product.Subfamily.Family.Area.Id,
             product.Subfamily.Family.Area.Name,
-            product.Subfamily.ActiveRouteId));
+            product.Subfamily.ActiveRouteId,
+            currentLocationName,
+            nextLocationName));
     }
 
     public async Task<ServiceResponse<WorkOrderContextResponse>> GetWorkOrderContextAsync(string woNumber, uint deviceId, CancellationToken cancellationToken)
@@ -78,6 +91,8 @@ public sealed class ScannerService : IScannerService
                 PreviousQuantity: 0,
                 CurrentStepNumber: 1,
                 CurrentStepName: "Paso 1",
+                CurrentLocationName: "Paso 1",
+                RouteName: null,
                 NextSteps: []));
         }
 
@@ -94,6 +109,7 @@ public sealed class ScannerService : IScannerService
 
         var currentStepNumber = 1;
         var currentStepName = routeSteps[0].Location?.Name ?? $"Paso {currentStepNumber}";
+        var currentLocationName = routeSteps[0].Location?.Name ?? $"Location {routeSteps[0].LocationId}";
         var previousQuantity = 0;
         var nextSteps = routeSteps.Select(step => new NextRouteStepResponse(
                 step.Id,
@@ -110,6 +126,7 @@ public sealed class ScannerService : IScannerService
             {
                 currentStepNumber = (int)currentStep.StepNumber;
                 currentStepName = currentStep.Location?.Name ?? $"Paso {currentStep.StepNumber}";
+                currentLocationName = currentStep.Location?.Name ?? $"Location {currentStep.LocationId}";
                 nextSteps = routeSteps
                     .Where(step => step.StepNumber > currentStep.StepNumber)
                     .Select(step => new NextRouteStepResponse(
@@ -133,6 +150,8 @@ public sealed class ScannerService : IScannerService
             PreviousQuantity: previousQuantity,
             CurrentStepNumber: currentStepNumber,
             CurrentStepName: currentStepName,
+            CurrentLocationName: currentLocationName,
+            RouteName: workOrder.Product?.Subfamily?.ActiveRoute?.Name,
             NextSteps: nextSteps));
     }
 

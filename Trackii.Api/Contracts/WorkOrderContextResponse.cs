@@ -5,6 +5,8 @@ public sealed record WorkOrderContextResponse(
     int PreviousQuantity,
     int CurrentStepNumber,
     string CurrentStepName,
+    string CurrentLocationName,
+    string? RouteName,
     IReadOnlyList<NextRouteStepResponse> NextSteps);
 
 public sealed record NextRouteStepResponse(

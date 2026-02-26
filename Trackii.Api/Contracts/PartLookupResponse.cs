@@ -11,4 +11,6 @@ public sealed record PartLookupResponse(
     string? FamilyName,
     uint? AreaId,
     string? AreaName,
-    uint? ActiveRouteId);
+    uint? ActiveRouteId,
+    string? CurrentLocationName,
+    string? NextLocationName);
