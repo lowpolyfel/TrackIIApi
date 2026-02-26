@@ -368,59 +368,93 @@ public sealed class ScannerService : IScannerService
     }
 
 
-    public async Task<ServiceResponse<ScrapResponse>> ScrapAsync(ScrapRequest request, CancellationToken cancellationToken)
+    public async Task<ServiceResponse<IReadOnlyList<ErrorCategoryResponse>>> GetErrorCategoriesAsync(CancellationToken cancellationToken)
+    {
+        var categories = await _scannerRepository.GetActiveErrorCategoriesAsync(cancellationToken);
+        var response = categories
+            .Select(category => new ErrorCategoryResponse(category.Id, category.Name))
+            .ToList();
+
+        return ServiceResponse<IReadOnlyList<ErrorCategoryResponse>>.Ok(response);
+    }
+
+    public async Task<ServiceResponse<IReadOnlyList<ErrorCodeResponse>>> GetErrorCodesByCategoryAsync(uint categoryId, CancellationToken cancellationToken)
+    {
+        var codes = await _scannerRepository.GetActiveErrorCodesByCategoryAsync(categoryId, cancellationToken);
+        var response = codes
+            .Select(code => new ErrorCodeResponse(code.Id, code.Code, code.Description))
+            .ToList();
+
+        return ServiceResponse<IReadOnlyList<ErrorCodeResponse>>.Ok(response);
+    }
+
+    public async Task<ServiceResponse<ScrapResponse>> ScrapOrderAsync(ScrapOrderRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.WorkOrderNumber))
         {
             return ServiceResponse<ScrapResponse>.Fail("Orden requerida.");
         }
 
-        await using var transaction = await _scannerRepository.BeginTransactionAsync(cancellationToken);
-        try
+        if (string.IsNullOrWhiteSpace(request.PartNumber))
         {
-            var user = await _scannerRepository.GetActiveUserByIdAsync(request.UserId, cancellationToken);
-            if (user is null)
-            {
-                return ServiceResponse<ScrapResponse>.Fail("Usuario inválido.", ServiceErrorType.Unauthorized);
-            }
-
-            var device = await _scannerRepository.GetActiveDeviceByIdAsync(request.DeviceId, cancellationToken);
-            if (device is null || device.UserId != user.Id)
-            {
-                return ServiceResponse<ScrapResponse>.Fail("Dispositivo inválido.", ServiceErrorType.Unauthorized);
-            }
-
-            var workOrder = await _scannerRepository.GetWorkOrderForRegisterAsync(request.WorkOrderNumber.Trim(), cancellationToken);
-            if (workOrder is null)
-            {
-                return ServiceResponse<ScrapResponse>.Fail("Orden no encontrada.");
-            }
-
-            workOrder.Status = WorkOrderStatus.Cancelled.ToDatabaseValue();
-
-            var wipItem = await _scannerRepository.GetWipItemByWorkOrderIdAsync(workOrder.Id, cancellationToken);
-            if (wipItem is not null)
-            {
-                wipItem.Status = WipItemStatus.Scrapped.ToDatabaseValue();
-                _scannerRepository.AddScanEvent(new ScanEvent
-                {
-                    WipItemId = wipItem.Id,
-                    RouteStepId = wipItem.CurrentStepId,
-                    ScanType = ScanType.Error.ToDatabaseValue(),
-                    Ts = DateTime.UtcNow
-                });
-            }
-
-            await _scannerRepository.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return ServiceResponse<ScrapResponse>.Ok(new ScrapResponse("Orden cancelada.", workOrder.Id, wipItem?.Id));
+            return ServiceResponse<ScrapResponse>.Fail("Número de parte requerido.");
         }
-        catch
+
+        if (request.Quantity == 0)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
+            return ServiceResponse<ScrapResponse>.Fail("Cantidad inválida.");
         }
+
+        var normalizedWorkOrder = request.WorkOrderNumber.Trim();
+        var normalizedPartNumber = request.PartNumber.Trim();
+
+        var user = await _scannerRepository.GetActiveUserByIdAsync(request.UserId, cancellationToken);
+        if (user is null)
+        {
+            return ServiceResponse<ScrapResponse>.Fail("Usuario inválido.", ServiceErrorType.Unauthorized);
+        }
+
+        var device = await _scannerRepository.GetActiveDeviceByIdAsync(request.DeviceId, cancellationToken);
+        if (device is null || device.UserId != user.Id)
+        {
+            return ServiceResponse<ScrapResponse>.Fail("Dispositivo inválido.", ServiceErrorType.Unauthorized);
+        }
+
+        var workOrder = await _scannerRepository.GetWorkOrderForRegisterAsync(normalizedWorkOrder, cancellationToken);
+        if (workOrder is null)
+        {
+            return ServiceResponse<ScrapResponse>.Fail("Orden no encontrada.");
+        }
+
+        if (!string.Equals(workOrder.Product?.PartNumber, normalizedPartNumber, StringComparison.OrdinalIgnoreCase))
+        {
+            return ServiceResponse<ScrapResponse>.Fail("El número de parte no corresponde a la orden.");
+        }
+
+        if (workOrder.Status.IsOneOf(WorkOrderStatus.Finished, WorkOrderStatus.Cancelled))
+        {
+            return ServiceResponse<ScrapResponse>.Fail("La orden no permite scrap.");
+        }
+
+        var wipItem = await _scannerRepository.GetWipItemByWorkOrderIdAsync(workOrder.Id, cancellationToken);
+        if (wipItem is null)
+        {
+            return ServiceResponse<ScrapResponse>.Fail("WIP no encontrado.");
+        }
+
+        if (wipItem.Status.IsOneOf(WipItemStatus.Finished, WipItemStatus.Scrapped))
+        {
+            return ServiceResponse<ScrapResponse>.Fail("El WIP no permite scrap.");
+        }
+
+        var errorCode = await _scannerRepository.GetActiveErrorCodeByIdAsync(request.ErrorCodeId, cancellationToken);
+        if (errorCode is null)
+        {
+            return ServiceResponse<ScrapResponse>.Fail("Código de error inválido.");
+        }
+
+        await _scannerRepository.ScrapOrderAsync(workOrder, wipItem, user, errorCode.Id, request.Quantity, request.Comments, cancellationToken);
+        return ServiceResponse<ScrapResponse>.Ok(new ScrapResponse("Orden cancelada.", workOrder.Id, wipItem.Id));
     }
 
     public async Task<ServiceResponse<ReworkResponse>> ReworkAsync(ReworkRequest request, CancellationToken cancellationToken)

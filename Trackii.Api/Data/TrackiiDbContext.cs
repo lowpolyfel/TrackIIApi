@@ -27,6 +27,9 @@ public sealed class TrackiiDbContext : DbContext
     public DbSet<ScanEvent> ScanEvents => Set<ScanEvent>();
     public DbSet<UnregisteredPart> UnregisteredParts => Set<UnregisteredPart>();
     public DbSet<WipReworkLog> WipReworkLogs => Set<WipReworkLog>();
+    public DbSet<ErrorCategory> ErrorCategories => Set<ErrorCategory>();
+    public DbSet<ErrorCode> ErrorCodes => Set<ErrorCode>();
+    public DbSet<ScrapLog> ScrapLogs => Set<ScrapLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -287,6 +290,56 @@ public sealed class TrackiiDbContext : DbContext
             entity.HasOne(e => e.Device)
                 .WithMany()
                 .HasForeignKey(e => e.DeviceId);
+        });
+
+
+        modelBuilder.Entity<ErrorCategory>(entity =>
+        {
+            entity.ToTable("error_category");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name");
+            entity.Property(e => e.Active).HasColumnName("active");
+        });
+
+        modelBuilder.Entity<ErrorCode>(entity =>
+        {
+            entity.ToTable("error_code");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CategoryId).HasColumnName("category_id");
+            entity.Property(e => e.Code).HasColumnName("code");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.Active).HasColumnName("active");
+            entity.HasOne(e => e.ErrorCategory)
+                .WithMany(c => c.ErrorCodes)
+                .HasForeignKey(e => e.CategoryId);
+        });
+
+        modelBuilder.Entity<ScrapLog>(entity =>
+        {
+            entity.ToTable("scrap_log");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.WipItemId).HasColumnName("wip_item_id");
+            entity.Property(e => e.ErrorCodeId).HasColumnName("error_code_id");
+            entity.Property(e => e.RouteStepId).HasColumnName("route_step_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.Qty).HasColumnName("qty");
+            entity.Property(e => e.Comments).HasColumnName("comments");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.HasOne(e => e.WipItem)
+                .WithMany(w => w.ScrapLogs)
+                .HasForeignKey(e => e.WipItemId);
+            entity.HasOne(e => e.ErrorCode)
+                .WithMany()
+                .HasForeignKey(e => e.ErrorCodeId);
+            entity.HasOne(e => e.RouteStep)
+                .WithMany(step => step.ScrapLogs)
+                .HasForeignKey(e => e.RouteStepId);
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.ScrapLogs)
+                .HasForeignKey(e => e.UserId);
         });
     }
 }

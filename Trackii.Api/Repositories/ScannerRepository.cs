@@ -94,6 +94,62 @@ public sealed class ScannerRepository : IScannerRepository
     public Task<WipItem?> GetWipItemByWorkOrderIdAsync(uint workOrderId, CancellationToken cancellationToken) =>
         _dbContext.WipItems.FirstOrDefaultAsync(wip => wip.WorkOrderId == workOrderId, cancellationToken);
 
+
+    public Task<List<ErrorCategory>> GetActiveErrorCategoriesAsync(CancellationToken cancellationToken) =>
+        _dbContext.ErrorCategories
+            .Where(category => category.Active)
+            .OrderBy(category => category.Name)
+            .ToListAsync(cancellationToken);
+
+    public Task<List<ErrorCode>> GetActiveErrorCodesByCategoryAsync(uint categoryId, CancellationToken cancellationToken) =>
+        _dbContext.ErrorCodes
+            .Where(code => code.CategoryId == categoryId && code.Active)
+            .OrderBy(code => code.Code)
+            .ToListAsync(cancellationToken);
+
+    public Task<ErrorCode?> GetActiveErrorCodeByIdAsync(uint errorCodeId, CancellationToken cancellationToken) =>
+        _dbContext.ErrorCodes
+            .FirstOrDefaultAsync(code => code.Id == errorCodeId && code.Active, cancellationToken);
+
+    public void AddScrapLog(ScrapLog scrapLog) => _dbContext.ScrapLogs.Add(scrapLog);
+
+    public async Task ScrapOrderAsync(WorkOrder workOrder, WipItem wipItem, User user, uint errorCodeId, uint quantity, string? comments, CancellationToken cancellationToken)
+    {
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _dbContext.ScrapLogs.Add(new ScrapLog
+            {
+                WipItemId = wipItem.Id,
+                ErrorCodeId = errorCodeId,
+                RouteStepId = wipItem.CurrentStepId,
+                UserId = user.Id,
+                Qty = quantity,
+                Comments = comments,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            wipItem.Status = WipItemStatus.Scrapped.ToDatabaseValue();
+            workOrder.Status = WorkOrderStatus.Cancelled.ToDatabaseValue();
+
+            _dbContext.ScanEvents.Add(new ScanEvent
+            {
+                WipItemId = wipItem.Id,
+                RouteStepId = wipItem.CurrentStepId,
+                ScanType = ScanType.Exit.ToDatabaseValue(),
+                Ts = DateTime.UtcNow
+            });
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     public void AddReworkLog(WipReworkLog log) => _dbContext.WipReworkLogs.Add(log);
 
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
