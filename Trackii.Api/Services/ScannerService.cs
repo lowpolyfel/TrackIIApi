@@ -34,18 +34,20 @@ public sealed class ScannerService : IScannerService
             await _scannerRepository.SaveChangesAsync(cancellationToken);
 
             return ServiceResponse<PartLookupResponse>.Ok(new PartLookupResponse(
-                false,
-                "El producto no está dado de alta. Contacta a ingeniería.",
-                normalized,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null));
+                    false,                                                      // 1. Found
+                    "El producto no está dado de alta. Contacta a ingeniería.", // 2. Message
+                    normalized,                                                 // 3. PartNumber
+                    null,                                                       // 4. ProductId
+                    null,                                                       // 5. SubfamilyId
+                    null,                                                       // 6. SubfamilyName
+                    null,                                                       // 7. FamilyId
+                    null,                                                       // 8. FamilyName
+                    null,                                                       // 9. AreaId
+                    null,                                                       // 10. AreaName
+                    null,                                                       // 11. ActiveRouteId
+                    null,                                                       // 12. CurrentLocationName 
+                    null                                                        // 13. NextLocationName 
+                ));
         }
 
         string? currentLocationName = null;
