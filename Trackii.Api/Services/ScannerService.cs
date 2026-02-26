@@ -45,19 +45,27 @@ public sealed class ScannerService : IScannerService
                 null,
                 null,
                 null,
-                null));
+                null, // NUEVO: Para CurrentLocationName
+                null  // NUEVO: Para NextLocationName
+            ));
+
         }
 
+        // === NUEVO: Buscar los nombres de las localidades para mandarlos a la App ===
         string? currentLocationName = null;
         string? nextLocationName = null;
 
-        if (product.Subfamily.ActiveRouteId is not null)
+        if (product.Subfamily.ActiveRouteId.HasValue)
         {
             var routeSteps = await _scannerRepository.GetRouteStepsByRouteIdAsync(product.Subfamily.ActiveRouteId.Value, cancellationToken);
-            currentLocationName = routeSteps.FirstOrDefault(step => step.StepNumber == 1)?.Location?.Name;
-            nextLocationName = routeSteps.FirstOrDefault(step => step.StepNumber == 2)?.Location?.Name;
+            if (routeSteps.Count > 0)
+            {
+                currentLocationName = routeSteps.FirstOrDefault(s => s.StepNumber == 1)?.Location?.Name;
+                nextLocationName = routeSteps.FirstOrDefault(s => s.StepNumber == 2)?.Location?.Name;
+            }
         }
 
+        // === Retorno actualizado con los 13 parámetros requeridos ===
         return ServiceResponse<PartLookupResponse>.Ok(new PartLookupResponse(
             true,
             null,
@@ -70,8 +78,9 @@ public sealed class ScannerService : IScannerService
             product.Subfamily.Family.Area.Id,
             product.Subfamily.Family.Area.Name,
             product.Subfamily.ActiveRouteId,
-            currentLocationName,
-            nextLocationName));
+            currentLocationName, // NUEVO: Localidad actual enviada a la app
+            nextLocationName     // NUEVO: Siguiente localidad enviada a la app
+        ));
     }
 
     public async Task<ServiceResponse<WorkOrderContextResponse>> GetWorkOrderContextAsync(string woNumber, uint deviceId, CancellationToken cancellationToken)
