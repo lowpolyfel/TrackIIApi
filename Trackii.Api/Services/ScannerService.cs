@@ -143,7 +143,7 @@ public sealed class ScannerService : IScannerService
             return ServiceResponse<RegisterScanResponse>.Fail("Orden y número de parte son requeridos.");
         }
 
-        if (request.Quantity == 0)
+        if (request.Quantity <= 0)
         {
             return ServiceResponse<RegisterScanResponse>.Fail("Cantidad inválida.");
         }
@@ -175,6 +175,13 @@ public sealed class ScannerService : IScannerService
                     CreationDateTime = DateTime.UtcNow,
                     Active = true
                 });
+
+                _scannerRepository.AddScanEvent(new ScanEvent
+                {
+                    ScanType = ScanType.Error.ToDatabaseValue(),
+                    Ts = DateTime.UtcNow
+                });
+
                 await _scannerRepository.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
                 return ServiceResponse<RegisterScanResponse>.Fail("Parte no registrada");
@@ -187,16 +194,12 @@ public sealed class ScannerService : IScannerService
 
             if (workOrder is null)
             {
-                if (!IsAlloyTabletAllowed(device, product))
-                {
-                    return ServiceResponse<RegisterScanResponse>.Fail("Orden no encontrada.");
-                }
-
+                // Se eliminó la restricción de IsAlloyTabletAllowed para que el ruteo sea dinámico.
                 workOrder = new WorkOrder
                 {
                     WoNumber = workOrderNumber,
                     ProductId = product.Id,
-                    Status = WorkOrderStatus.InProgress.ToDatabaseValue()
+                    Status = WorkOrderStatus.Open.ToDatabaseValue()
                 };
                 _scannerRepository.AddWorkOrder(workOrder);
                 await _scannerRepository.SaveChangesAsync(cancellationToken);
@@ -270,6 +273,21 @@ public sealed class ScannerService : IScannerService
             else
             {
                 wipItem!.CurrentStepId = targetStep.Id;
+
+                if (targetStep.StepNumber > 1 && workOrder.Status == WorkOrderStatus.Open.ToDatabaseValue())
+                {
+                    workOrder.Status = WorkOrderStatus.InProgress.ToDatabaseValue();
+                }
+            }
+
+            if (!isNew)
+            {
+                var latestExecution = await _scannerRepository.GetLatestExecutionByWipItemIdAsync(wipItem!.Id, cancellationToken);
+
+                if (latestExecution is not null && request.Quantity > latestExecution.QtyIn)
+                {
+                    return ServiceResponse<RegisterScanResponse>.Fail($"La cantidad ({request.Quantity}) no puede ser mayor a la del paso anterior ({latestExecution.QtyIn}).");
+                }
             }
 
             _scannerRepository.AddWipStepExecution(new WipStepExecution
@@ -280,7 +298,7 @@ public sealed class ScannerService : IScannerService
                 DeviceId = device.Id,
                 LocationId = device.LocationId,
                 CreatedAt = DateTime.UtcNow,
-                QtyIn = request.Quantity,
+                QtyIn = (uint)request.Quantity,
                 QtyScrap = 0
             });
 
@@ -434,14 +452,5 @@ public sealed class ScannerService : IScannerService
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
-    }
-
-    private static bool IsAlloyTabletAllowed(Device device, Product product)
-    {
-        var isAlloyDevice = device.Location?.Name?.Equals("Alloy", StringComparison.OrdinalIgnoreCase) == true;
-        var isTabletProduct = product.Subfamily?.Name.Contains("tablet", StringComparison.OrdinalIgnoreCase) == true
-                              || product.Subfamily?.Family?.Name.Contains("tablet", StringComparison.OrdinalIgnoreCase) == true;
-
-        return isAlloyDevice && isTabletProduct;
     }
 }
