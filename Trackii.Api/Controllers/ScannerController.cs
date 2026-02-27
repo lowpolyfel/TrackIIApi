@@ -69,15 +69,17 @@ public sealed class ScannerController : ControllerBase
     }
 
     [HttpPost("rework")]
-    public async Task<IActionResult> Rework([FromBody] ReworkRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ServiceResponse<ReworkResponse>>> ProcessRework(
+        [FromBody] ReworkRequest request,
+        CancellationToken cancellationToken)
     {
-        if (request is null)
+        var response = await _scannerService.ProcessReworkAsync(request, cancellationToken);
+        if (!response.Success)
         {
-            return BadRequest("Solicitud inválida.");
+            return BadRequest(response);
         }
 
-        var response = await _scannerService.ReworkAsync(request, cancellationToken);
-        return ToActionResult(response);
+        return Ok(response);
     }
 
     private IActionResult ToActionResult<T>(ServiceResponse<T> response)

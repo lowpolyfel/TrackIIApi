@@ -154,7 +154,11 @@ public sealed class ScannerRepository : IScannerRepository
         }
     }
 
-    public void AddReworkLog(WipReworkLog log) => _dbContext.WipReworkLogs.Add(log);
+    public async Task AddWipReworkLogAsync(WipReworkLog log, CancellationToken cancellationToken)
+    {
+        _dbContext.WipReworkLogs.Add(log);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
 
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
         _dbContext.Database.BeginTransactionAsync(cancellationToken);

@@ -30,7 +30,7 @@ public interface IScannerRepository
     Task<ErrorCode?> GetActiveErrorCodeByIdAsync(uint errorCodeId, CancellationToken cancellationToken);
     void AddScrapLog(ScrapLog scrapLog);
     Task ScrapOrderAsync(WorkOrder workOrder, WipItem wipItem, User user, uint errorCodeId, uint quantity, string? comments, CancellationToken cancellationToken);
-    void AddReworkLog(WipReworkLog log);
+    Task AddWipReworkLogAsync(WipReworkLog log, CancellationToken cancellationToken);
 
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);

@@ -2,8 +2,11 @@ namespace Trackii.Api.Contracts;
 
 public sealed record ReworkRequest(
     string WorkOrderNumber,
+    string PartNumber,
     uint Quantity,
-    uint UserId,
-    uint DeviceId,
+    uint LocationId,
+    bool IsRelease,
     string? Reason,
-    bool Completed);
+    uint UserId,
+    uint DeviceId
+);
