@@ -160,6 +160,11 @@ public sealed class ScannerRepository : IScannerRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public Task<WipItem?> GetWipItemByLotNumberAsync(string noLote, CancellationToken cancellationToken) =>
+        _dbContext.WipItems
+            .Include(wip => wip.WorkOrder)
+            .FirstOrDefaultAsync(wip => wip.WorkOrder != null && wip.WorkOrder.WoNumber == noLote, cancellationToken);
+
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
         _dbContext.Database.BeginTransactionAsync(cancellationToken);
 

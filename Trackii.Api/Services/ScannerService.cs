@@ -450,6 +450,54 @@ public sealed class ScannerService : IScannerService
         return ServiceResponse<ScrapResponse>.Ok(new ScrapResponse("Orden cancelada.", workOrder.Id, wipItem.Id));
     }
 
+
+    public async Task<ServiceResponse<WipItemValidationResponse>> ValidateReworkAsync(string noLote, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(noLote))
+        {
+            return ServiceResponse<WipItemValidationResponse>.Fail("Número de lote requerido.");
+        }
+
+        var normalizedLotNumber = noLote.Trim();
+        var wipItem = await _scannerRepository.GetWipItemByLotNumberAsync(normalizedLotNumber, cancellationToken);
+        if (wipItem is null || wipItem.WorkOrder is null)
+        {
+            return ServiceResponse<WipItemValidationResponse>.Fail("Esta orden aún no empieza.", ServiceErrorType.NotFound);
+        }
+
+        return ServiceResponse<WipItemValidationResponse>.Ok(new WipItemValidationResponse(
+            wipItem.Id,
+            wipItem.WorkOrderId,
+            wipItem.WorkOrder.WoNumber,
+            wipItem.CurrentStepId,
+            wipItem.RouteId,
+            wipItem.Status));
+    }
+
+    public async Task<ServiceResponse<ReleaseWipItemResponse>> ReleaseWipItemAsync(string noLote, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(noLote))
+        {
+            return ServiceResponse<ReleaseWipItemResponse>.Fail("Número de lote requerido.");
+        }
+
+        var normalizedLotNumber = noLote.Trim();
+        var wipItem = await _scannerRepository.GetWipItemByLotNumberAsync(normalizedLotNumber, cancellationToken);
+        if (wipItem is null || wipItem.WorkOrder is null)
+        {
+            return ServiceResponse<ReleaseWipItemResponse>.Fail("Esta orden aún no empieza.", ServiceErrorType.NotFound);
+        }
+
+        wipItem.Status = WipItemStatus.Active.ToDatabaseValue();
+        await _scannerRepository.SaveChangesAsync(cancellationToken);
+
+        return ServiceResponse<ReleaseWipItemResponse>.Ok(new ReleaseWipItemResponse(
+            wipItem.Id,
+            wipItem.WorkOrder.WoNumber,
+            wipItem.Status,
+            "Lote liberado exitosamente."));
+    }
+
     public async Task<ServiceResponse<ReworkResponse>> ProcessReworkAsync(ReworkRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.WorkOrderNumber) || string.IsNullOrWhiteSpace(request.PartNumber))

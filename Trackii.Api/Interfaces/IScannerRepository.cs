@@ -31,6 +31,7 @@ public interface IScannerRepository
     void AddScrapLog(ScrapLog scrapLog);
     Task ScrapOrderAsync(WorkOrder workOrder, WipItem wipItem, User user, uint errorCodeId, uint quantity, string? comments, CancellationToken cancellationToken);
     Task AddWipReworkLogAsync(WipReworkLog log, CancellationToken cancellationToken);
+    Task<WipItem?> GetWipItemByLotNumberAsync(string noLote, CancellationToken cancellationToken);
 
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
