@@ -450,11 +450,11 @@ public sealed class ScannerService : IScannerService
         return ServiceResponse<ScrapResponse>.Ok(new ScrapResponse("Orden cancelada.", workOrder.Id, wipItem.Id));
     }
 
-    public async Task<ServiceResponse<ReworkResponse>> ReworkAsync(ReworkRequest request, CancellationToken cancellationToken)
+    public async Task<ServiceResponse<ReworkResponse>> ProcessReworkAsync(ReworkRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.WorkOrderNumber))
+        if (string.IsNullOrWhiteSpace(request.WorkOrderNumber) || string.IsNullOrWhiteSpace(request.PartNumber))
         {
-            return ServiceResponse<ReworkResponse>.Fail("Orden requerida.");
+            return ServiceResponse<ReworkResponse>.Fail("La orden y el número de parte son requeridos.");
         }
 
         if (request.Quantity == 0)
@@ -462,54 +462,71 @@ public sealed class ScannerService : IScannerService
             return ServiceResponse<ReworkResponse>.Fail("Cantidad inválida.");
         }
 
+        var workOrder = await _scannerRepository.GetWorkOrderContextAsync(request.WorkOrderNumber.Trim(), cancellationToken);
+        if (workOrder is null || workOrder.WipItem is null)
+        {
+            return ServiceResponse<ReworkResponse>.Fail("La orden no existe o no ha sido iniciada.");
+        }
+
+        if (!string.Equals(workOrder.Product?.PartNumber, request.PartNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return ServiceResponse<ReworkResponse>.Fail("El número de parte no corresponde a la orden.");
+        }
+
+        if (workOrder.Status == WorkOrderStatus.Finished.ToDatabaseValue() ||
+            workOrder.Status == WorkOrderStatus.Cancelled.ToDatabaseValue())
+        {
+            return ServiceResponse<ReworkResponse>.Fail("No se puede retrabajar una orden terminada o cancelada.");
+        }
+
+        var user = await _scannerRepository.GetActiveUserByIdAsync(request.UserId, cancellationToken);
+        if (user is null)
+        {
+            return ServiceResponse<ReworkResponse>.Fail("Usuario inválido.", ServiceErrorType.Unauthorized);
+        }
+
+        var device = await _scannerRepository.GetActiveDeviceByIdAsync(request.DeviceId, cancellationToken);
+        if (device is null || device.UserId != user.Id)
+        {
+            return ServiceResponse<ReworkResponse>.Fail("Dispositivo inválido.", ServiceErrorType.Unauthorized);
+        }
+
+        var location = await _scannerRepository.GetLocationByIdAsync(request.LocationId, cancellationToken);
+        if (location is null)
+        {
+            return ServiceResponse<ReworkResponse>.Fail("Localidad inválida.");
+        }
+
         await using var transaction = await _scannerRepository.BeginTransactionAsync(cancellationToken);
+
         try
         {
-            var user = await _scannerRepository.GetActiveUserByIdAsync(request.UserId, cancellationToken);
-            if (user is null)
-            {
-                return ServiceResponse<ReworkResponse>.Fail("Usuario inválido.", ServiceErrorType.Unauthorized);
-            }
+            workOrder.WipItem.Status = request.IsRelease
+                ? WipItemStatus.Active.ToDatabaseValue()
+                : WipItemStatus.Hold.ToDatabaseValue();
 
-            var device = await _scannerRepository.GetActiveDeviceByIdAsync(request.DeviceId, cancellationToken);
-            if (device is null || device.UserId != user.Id)
-            {
-                return ServiceResponse<ReworkResponse>.Fail("Dispositivo inválido.", ServiceErrorType.Unauthorized);
-            }
+            await _scannerRepository.SaveChangesAsync(cancellationToken);
 
-            var workOrder = await _scannerRepository.GetWorkOrderForRegisterAsync(request.WorkOrderNumber.Trim(), cancellationToken);
-            if (workOrder is null)
+            var reworkLog = new WipReworkLog
             {
-                return ServiceResponse<ReworkResponse>.Fail("Orden no encontrada.");
-            }
-
-            var wipItem = await _scannerRepository.GetWipItemByWorkOrderIdAsync(workOrder.Id, cancellationToken);
-            if (wipItem is null)
-            {
-                return ServiceResponse<ReworkResponse>.Fail("WIP no encontrado.");
-            }
-
-            _scannerRepository.AddReworkLog(new WipReworkLog
-            {
-                WipItemId = wipItem.Id,
-                LocationId = device.LocationId,
-                UserId = user.Id,
-                DeviceId = device.Id,
+                WipItemId = workOrder.WipItem.Id,
+                LocationId = request.LocationId,
+                UserId = request.UserId,
+                DeviceId = request.DeviceId,
                 Qty = request.Quantity,
                 Reason = request.Reason,
                 CreatedAt = DateTime.UtcNow
-            });
+            };
 
-            wipItem.Status = request.Completed ? WipItemStatus.Active.ToDatabaseValue() : WipItemStatus.Hold.ToDatabaseValue();
-            await _scannerRepository.SaveChangesAsync(cancellationToken);
+            await _scannerRepository.AddWipReworkLogAsync(reworkLog, cancellationToken);
+
             await transaction.CommitAsync(cancellationToken);
-
-            return ServiceResponse<ReworkResponse>.Ok(new ReworkResponse(request.Completed ? "Rework terminado." : "Rework registrado.", workOrder.Id, wipItem.Id, wipItem.Status));
+            return ServiceResponse<ReworkResponse>.Ok(new ReworkResponse(true, "Retrabajo registrado exitosamente."));
         }
-        catch
+        catch (Exception)
         {
             await transaction.RollbackAsync(cancellationToken);
-            throw;
+            return ServiceResponse<ReworkResponse>.Fail("Error interno al procesar el retrabajo.");
         }
     }
 }
