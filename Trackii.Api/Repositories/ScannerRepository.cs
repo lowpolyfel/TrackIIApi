@@ -26,12 +26,16 @@ public sealed class ScannerRepository : IScannerRepository
 
     public Task<WorkOrder?> GetWorkOrderContextAsync(string woNumber, CancellationToken cancellationToken) =>
         _dbContext.WorkOrders
-            .Include(wo => wo.Product)
-            .ThenInclude(p => p!.Subfamily)
-            .ThenInclude(sf => sf!.ActiveRoute)
             .Include(wo => wo.WipItem)
             .ThenInclude(wip => wip!.CurrentStep)
             .ThenInclude(step => step!.Location)
+            .Include(wo => wo.Product)
+            .ThenInclude(p => p!.Subfamily)
+            .ThenInclude(sf => sf!.ActiveRoute)
+            .Include(wo => wo.Product)
+            .ThenInclude(p => p!.Subfamily)
+            .ThenInclude(sf => sf!.Family)
+            .ThenInclude(f => f!.Area)
             .FirstOrDefaultAsync(wo => wo.WoNumber == woNumber, cancellationToken);
 
     public Task<Device?> GetActiveDeviceWithLocationAsync(uint deviceId, CancellationToken cancellationToken) =>
