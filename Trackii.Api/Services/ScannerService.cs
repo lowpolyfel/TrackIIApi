@@ -91,38 +91,31 @@ public sealed class ScannerService : IScannerService
             product = await _scannerRepository.GetActiveProductWithSubfamilyAsync(partNumber.Trim(), cancellationToken);
         }
 
-        var currentStepName = "Paso 1";
-        var currentLocationName = "Paso 1";
+        var currentStepName = string.Empty;
+        var currentLocationName = string.Empty;
         IReadOnlyList<NextRouteStepResponse> nextSteps = [];
 
         if (workOrder is null)
         {
-            // OJO AQUÍ: Se quitaron las palabras 'string' y 'var' porque las variables ya existen
-            currentStepName = "Paso 1";
-            var routeName = product?.Subfamily?.ActiveRoute?.Name ?? product?.Subfamily?.ActiveRouteId?.ToString() ?? "Sin ruta";
-            nextSteps = new List<NextRouteStepResponse>(); // Solo se reasigna
+            var routeName = product?.Subfamily?.ActiveRoute?.Name ?? "Sin ruta";
+            nextSteps = [];
 
             if (product?.Subfamily?.ActiveRouteId is not null)
             {
-                // OJO AQUÍ: Cambiamos el nombre a 'pasosRuta' para que no choque con 'routeSteps' de afuera
                 var pasosRuta = await _scannerRepository.GetRouteStepsByRouteIdAsync(product.Subfamily.ActiveRouteId.Value, cancellationToken);
                 if (pasosRuta.Count > 0)
                 {
-                    currentStepName = pasosRuta.FirstOrDefault(s => s.StepNumber == 1)?.Location?.Name ?? "Paso 1";
-                    currentLocationName = currentStepName;
-
-                    var step2 = pasosRuta.FirstOrDefault(s => s.StepNumber == 2);
-                    if (step2 is not null)
-                    {
-                        // Como 'nextSteps' ya es una lista, usamos .Add
-                        (nextSteps as List<NextRouteStepResponse>)?.Add(new NextRouteStepResponse(
-                            step2.Id,
-                            (int)step2.StepNumber,
-                            step2.Location?.Name ?? "Paso 2",
-                            step2.LocationId,
-                            step2.Location?.Name ?? "Paso 2"
-                        ));
-                    }
+                    var primerPaso = pasosRuta.FirstOrDefault(s => s.StepNumber == 1);
+                    var primerNombreLocalidad = primerPaso?.Location?.Name;
+                    currentStepName = primerNombreLocalidad ?? $"Paso {primerPaso?.StepNumber ?? 1}";
+                    currentLocationName = primerNombreLocalidad ?? $"Location {primerPaso?.LocationId ?? pasosRuta[0].LocationId}";
+                    nextSteps = pasosRuta.Select(step => new NextRouteStepResponse(
+                            step.Id,
+                            (int)step.StepNumber,
+                            step.Location?.Name ?? $"Paso {step.StepNumber}",
+                            step.LocationId,
+                            step.Location?.Name ?? $"Location {step.LocationId}"))
+                        .ToList();
                 }
             }
 
