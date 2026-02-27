@@ -11,4 +11,6 @@ public interface IScannerService
     Task<ServiceResponse<IReadOnlyList<ErrorCodeResponse>>> GetErrorCodesByCategoryAsync(uint categoryId, CancellationToken cancellationToken);
     Task<ServiceResponse<ScrapResponse>> ScrapOrderAsync(ScrapOrderRequest request, CancellationToken cancellationToken);
     Task<ServiceResponse<ReworkResponse>> ProcessReworkAsync(ReworkRequest request, CancellationToken cancellationToken);
+    Task<ServiceResponse<WipItemValidationResponse>> ValidateReworkAsync(string noLote, CancellationToken cancellationToken);
+    Task<ServiceResponse<ReleaseWipItemResponse>> ReleaseWipItemAsync(string noLote, CancellationToken cancellationToken);
 }
