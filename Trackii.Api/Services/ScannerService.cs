@@ -240,14 +240,44 @@ public sealed class ScannerService : IScannerService
 
             if (workOrder is not null)
             {
+                bool isInvalidStatus = false;
+                string errorMessage = string.Empty;
+
                 if (workOrder.Status.IsOneOf(WorkOrderStatus.Cancelled, WorkOrderStatus.Finished))
-                    return ServiceResponse<RegisterScanResponse>.Fail("La orden no permite avanzar.");
-
-                if (workOrder.ProductId != product.Id)
+                {
+                    isInvalidStatus = true;
+                    errorMessage = "La orden no permite avanzar porque está terminada o cancelada.";
+                }
+                else if (workOrder.ProductId != product.Id)
+                {
                     return ServiceResponse<RegisterScanResponse>.Fail("El número de parte no corresponde a la orden.");
+                }
+                else if (wipItem is not null && wipItem.Status.IsOneOf(WipItemStatus.Finished, WipItemStatus.Scrapped, WipItemStatus.Hold))
+                {
+                    isInvalidStatus = true;
+                    errorMessage = $"El producto no puede avanzar porque se encuentra en: {wipItem.Status}.";
+                }
 
-                if (wipItem is not null && wipItem.Status.IsOneOf(WipItemStatus.Finished, WipItemStatus.Scrapped, WipItemStatus.Hold))
-                    return ServiceResponse<RegisterScanResponse>.Fail("El WIP no permite avanzar.");
+                // Si la orden o el WIP están en un estado bloqueado
+                if (isInvalidStatus)
+                {
+                    // Guardamos el evento de tipo ERROR en scan_event si el wipItem ya existe
+                    if (wipItem is not null)
+                    {
+                        _scannerRepository.AddScanEvent(new ScanEvent
+                        {
+                            WipItemId = wipItem.Id,
+                            RouteStepId = wipItem.CurrentStepId,
+                            ScanType = ScanType.Error.ToDatabaseValue(),
+                            Ts = DateTime.UtcNow
+                        });
+
+                        await _scannerRepository.SaveChangesAsync(cancellationToken);
+                        await transaction.CommitAsync(cancellationToken); // Hacemos commit del error para que persista
+                    }
+
+                    return ServiceResponse<RegisterScanResponse>.Fail(errorMessage);
+                }
             }
 
             // 3. DEFINIR EL PASO Y VALIDAR LA UBICACIÓN DE LA TABLETA
