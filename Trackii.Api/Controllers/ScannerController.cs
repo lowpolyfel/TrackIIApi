@@ -68,6 +68,14 @@ public sealed class ScannerController : ControllerBase
         return ToActionResult(response);
     }
 
+    [HttpPost("partial-scrap")]
+    public async Task<IActionResult> PartialScrap([FromBody] ScrapOrderRequest request, CancellationToken cancellationToken)
+    {
+        if (request is null) return BadRequest("Solicitud inválida.");
+        var response = await _scannerService.RegisterPartialScrapAsync(request, cancellationToken);
+        return ToActionResult(response);
+    }
+
 
     [HttpGet("ValidateRework/{noLote}")]
     public async Task<IActionResult> ValidateRework(string noLote, CancellationToken cancellationToken)
