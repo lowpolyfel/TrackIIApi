@@ -462,16 +462,26 @@ public sealed class ScannerService : IScannerService
         var wipItem = await _scannerRepository.GetWipItemByLotNumberAsync(normalizedLotNumber, cancellationToken);
         if (wipItem is null || wipItem.WorkOrder is null)
         {
-            return ServiceResponse<WipItemValidationResponse>.Fail("Esta orden aún no empieza.", ServiceErrorType.NotFound);
+            return ServiceResponse<WipItemValidationResponse>.Ok(new WipItemValidationResponse(
+                false,
+                null,
+                null,
+                normalizedLotNumber,
+                null,
+                null,
+                null,
+                "Esta orden aún no empieza."));
         }
 
         return ServiceResponse<WipItemValidationResponse>.Ok(new WipItemValidationResponse(
+            true,
             wipItem.Id,
             wipItem.WorkOrderId,
             wipItem.WorkOrder.WoNumber,
             wipItem.CurrentStepId,
             wipItem.RouteId,
-            wipItem.Status));
+            wipItem.Status,
+            null));
     }
 
     public async Task<ServiceResponse<ReleaseWipItemResponse>> ReleaseWipItemAsync(string noLote, CancellationToken cancellationToken)
