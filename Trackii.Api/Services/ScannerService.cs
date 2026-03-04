@@ -28,7 +28,7 @@ public sealed class ScannerService : IScannerService
             _scannerRepository.AddUnregisteredPart(new UnregisteredPart
             {
                 PartNumber = normalized,
-                CreationDateTime = DateTime.UtcNow,
+                CreationDateTime = DateTime.Now,
                 Active = true
             });
             await _scannerRepository.SaveChangesAsync(cancellationToken);
@@ -215,13 +215,13 @@ public sealed class ScannerService : IScannerService
                 _scannerRepository.AddUnregisteredPart(new UnregisteredPart
                 {
                     PartNumber = partNumber,
-                    CreationDateTime = DateTime.UtcNow,
+                    CreationDateTime = DateTime.Now,
                     Active = true
                 });
                 _scannerRepository.AddScanEvent(new ScanEvent
                 {
                     ScanType = ScanType.Error.ToDatabaseValue(),
-                    Ts = DateTime.UtcNow
+                    Ts = DateTime.Now
                 });
                 await _scannerRepository.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
@@ -269,7 +269,7 @@ public sealed class ScannerService : IScannerService
                             WipItemId = wipItem.Id,
                             RouteStepId = wipItem.CurrentStepId,
                             ScanType = ScanType.Error.ToDatabaseValue(),
-                            Ts = DateTime.UtcNow
+                            Ts = DateTime.Now
                         });
 
                         await _scannerRepository.SaveChangesAsync(cancellationToken);
@@ -330,7 +330,7 @@ public sealed class ScannerService : IScannerService
                     WorkOrderId = workOrder.Id,
                     CurrentStepId = targetStep.Id,
                     Status = WipItemStatus.Active.ToDatabaseValue(),
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.Now,
                     RouteId = routeId.Value
                 };
                 _scannerRepository.AddWipItem(wipItem);
@@ -351,7 +351,7 @@ public sealed class ScannerService : IScannerService
                 UserId = user.Id,
                 DeviceId = device.Id,
                 LocationId = device.LocationId,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.Now,
                 QtyIn = (uint)request.Quantity,
                 QtyScrap = 0
             });
@@ -361,7 +361,7 @@ public sealed class ScannerService : IScannerService
                 WipItem = wipItem,
                 RouteStepId = targetStep.Id,
                 ScanType = ScanType.Entry.ToDatabaseValue(),
-                Ts = DateTime.UtcNow
+                Ts = DateTime.Now
             });
 
             var isFinalStep = targetStep.StepNumber == steps.Max(step => step.StepNumber);
@@ -374,7 +374,7 @@ public sealed class ScannerService : IScannerService
                     WipItem = wipItem,
                     RouteStepId = targetStep.Id,
                     ScanType = ScanType.Exit.ToDatabaseValue(),
-                    Ts = DateTime.UtcNow
+                    Ts = DateTime.Now
                 });
             }
 
@@ -506,7 +506,7 @@ public sealed class ScannerService : IScannerService
             UserId = user.Id,
             Qty = request.Quantity,
             Comments = request.Comments,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now
         });
 
         await _scannerRepository.SaveChangesAsync(cancellationToken);
@@ -637,7 +637,7 @@ public sealed class ScannerService : IScannerService
                 DeviceId = request.DeviceId,
                 Qty = request.Quantity,
                 Reason = request.Reason,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.Now
             };
 
             await _scannerRepository.AddWipReworkLogAsync(reworkLog, cancellationToken);
