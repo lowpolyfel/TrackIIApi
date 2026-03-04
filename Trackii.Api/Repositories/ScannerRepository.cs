@@ -130,7 +130,7 @@ public sealed class ScannerRepository : IScannerRepository
                 UserId = user.Id,
                 Qty = quantity,
                 Comments = comments,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.Now
             });
 
             wipItem.Status = WipItemStatus.Scrapped.ToDatabaseValue();
@@ -141,7 +141,7 @@ public sealed class ScannerRepository : IScannerRepository
                 WipItemId = wipItem.Id,
                 RouteStepId = wipItem.CurrentStepId,
                 ScanType = ScanType.Exit.ToDatabaseValue(),
-                Ts = DateTime.UtcNow
+                Ts = DateTime.Now
             });
 
             await _dbContext.SaveChangesAsync(cancellationToken);
