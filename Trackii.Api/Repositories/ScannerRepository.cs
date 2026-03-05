@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Trackii.Api.Data;
 using Trackii.Api.Interfaces;
@@ -25,19 +25,22 @@ public sealed class ScannerRepository : IScannerRepository
     public void AddUnregisteredPart(UnregisteredPart unregisteredPart) => _dbContext.UnregisteredParts.Add(unregisteredPart);
 
     public Task<WorkOrder?> GetWorkOrderContextAsync(string woNumber, CancellationToken cancellationToken) =>
-        _dbContext.WorkOrders
-            .Include(wo => wo.WipItem)
-            .ThenInclude(wip => wip!.CurrentStep)
-            .ThenInclude(step => step!.Location)
-            .Include(wo => wo.Product)
-            .ThenInclude(p => p!.Subfamily)
-            .ThenInclude(sf => sf!.ActiveRoute)
-            .Include(wo => wo.Product)
-            .ThenInclude(p => p!.Subfamily)
-            .ThenInclude(sf => sf!.Family)
-            .ThenInclude(f => f!.Area)
-            .FirstOrDefaultAsync(wo => wo.WoNumber == woNumber, cancellationToken);
-
+            _dbContext.WorkOrders
+                .Include(wo => wo.WipItem)
+                    .ThenInclude(wip => wip!.CurrentStep)
+                    .ThenInclude(step => step!.Location)
+                // 👇 ESTAS DOS LÍNEAS SON CLAVE PARA QUE LA LÍNEA DE TIEMPO TENGA DATOS 👇
+                .Include(wo => wo.WipItem)
+                    .ThenInclude(wip => wip!.StepExecutions)
+                // 👆 ================================================================= 👆
+                .Include(wo => wo.Product)
+                    .ThenInclude(p => p!.Subfamily)
+                    .ThenInclude(sf => sf!.ActiveRoute)
+                .Include(wo => wo.Product)
+                    .ThenInclude(p => p!.Subfamily)
+                    .ThenInclude(sf => sf!.Family)
+                    .ThenInclude(f => f!.Area)
+                .FirstOrDefaultAsync(wo => wo.WoNumber == woNumber, cancellationToken);
     public Task<Device?> GetActiveDeviceWithLocationAsync(uint deviceId, CancellationToken cancellationToken) =>
         _dbContext.Devices
             .Include(d => d.Location)

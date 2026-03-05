@@ -78,14 +78,12 @@ public sealed class ScannerService : IScannerService
 
     public async Task<ServiceResponse<WorkOrderContextResponse>> GetWorkOrderContextAsync(string woNumber, string? partNumber, uint deviceId, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(woNumber))
-        {
-            return ServiceResponse<WorkOrderContextResponse>.Fail("Número de orden requerido.");
-        }
+        if (string.IsNullOrWhiteSpace(woNumber)) return ServiceResponse<WorkOrderContextResponse>.Fail("Número de orden requerido.");
 
         var normalizedWorkOrder = woNumber.Trim();
         var workOrder = await _scannerRepository.GetWorkOrderContextAsync(normalizedWorkOrder, cancellationToken);
         Product? product = workOrder?.Product;
+
         if (product is null && !string.IsNullOrWhiteSpace(partNumber))
         {
             product = await _scannerRepository.GetActiveProductWithSubfamilyAsync(partNumber.Trim(), cancellationToken);
@@ -94,63 +92,45 @@ public sealed class ScannerService : IScannerService
         var currentStepName = string.Empty;
         var currentLocationName = string.Empty;
         IReadOnlyList<NextRouteStepResponse> nextSteps = [];
+        var timeline = new List<TimelineStepResponse>();
+
+        // 🟢 Extraemos los Estatus y la Fecha de la orden
+        string orderStatus = workOrder?.Status ?? "Open";
+        string wipStatus = workOrder?.WipItem?.Status ?? "New";
+        string? statusUpdatedAt = null;
 
         if (workOrder is null)
         {
             var routeName = product?.Subfamily?.ActiveRoute?.Name ?? "Sin ruta";
-            nextSteps = [];
-
             if (product?.Subfamily?.ActiveRouteId is not null)
             {
                 var pasosRuta = await _scannerRepository.GetRouteStepsByRouteIdAsync(product.Subfamily.ActiveRouteId.Value, cancellationToken);
                 if (pasosRuta.Count > 0)
                 {
                     var primerPaso = pasosRuta.FirstOrDefault(s => s.StepNumber == 1);
-                    var primerNombreLocalidad = primerPaso?.Location?.Name;
-                    currentStepName = primerNombreLocalidad ?? $"Paso {primerPaso?.StepNumber ?? 1}";
-                    currentLocationName = primerNombreLocalidad ?? $"Location {primerPaso?.LocationId ?? pasosRuta[0].LocationId}";
-                    nextSteps = pasosRuta.Select(step => new NextRouteStepResponse(
-                            step.Id,
-                            (int)step.StepNumber,
-                            step.Location?.Name ?? $"Paso {step.StepNumber}",
-                            step.LocationId,
-                            step.Location?.Name ?? $"Location {step.LocationId}"))
-                        .ToList();
+                    currentStepName = primerPaso?.Location?.Name ?? $"Paso {primerPaso?.StepNumber ?? 1}";
+                    currentLocationName = primerPaso?.Location?.Name ?? $"Location {primerPaso?.LocationId ?? pasosRuta[0].LocationId}";
+                    nextSteps = pasosRuta.Select(step => new NextRouteStepResponse(step.Id, (int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", step.LocationId, step.Location?.Name ?? $"Location {step.LocationId}")).ToList();
+                    timeline = pasosRuta.Select(step => new TimelineStepResponse((int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", step.StepNumber == 1 ? "CURRENT" : "PENDING", "-", "-")).ToList();
                 }
             }
 
             return ServiceResponse<WorkOrderContextResponse>.Ok(new WorkOrderContextResponse(
-                IsNew: true,
-                PreviousQuantity: 0,
-                CurrentStepNumber: 1,
-                CurrentStepName: currentStepName,
-                CurrentLocationName: currentLocationName,
-                RouteName: routeName,
-                NextSteps: nextSteps));
+                IsNew: true, OrderStatus: orderStatus, WipStatus: wipStatus, StatusUpdatedAt: statusUpdatedAt,
+                PreviousQuantity: 0, CurrentStepNumber: 1, CurrentStepName: currentStepName, CurrentLocationName: currentLocationName, RouteName: routeName, NextSteps: nextSteps, Timeline: timeline));
         }
 
-        if (workOrder.Product?.Subfamily?.ActiveRouteId is null)
-        {
-            return ServiceResponse<WorkOrderContextResponse>.Fail("La orden no tiene ruta activa configurada.");
-        }
+        if (workOrder.Product?.Subfamily?.ActiveRouteId is null) return ServiceResponse<WorkOrderContextResponse>.Fail("La orden no tiene ruta activa configurada.");
 
         var routeSteps = await _scannerRepository.GetRouteStepsByRouteIdAsync(workOrder.Product.Subfamily.ActiveRouteId.Value, cancellationToken);
-        if (routeSteps.Count == 0)
-        {
-            return ServiceResponse<WorkOrderContextResponse>.Fail("La ruta no tiene pasos configurados.");
-        }
+        if (routeSteps.Count == 0) return ServiceResponse<WorkOrderContextResponse>.Fail("La ruta no tiene pasos configurados.");
 
         var currentStepNumber = 1;
         currentStepName = routeSteps[0].Location?.Name ?? $"Paso {currentStepNumber}";
         currentLocationName = routeSteps[0].Location?.Name ?? $"Location {routeSteps[0].LocationId}";
         var previousQuantity = 0;
-        nextSteps = routeSteps.Select(step => new NextRouteStepResponse(
-                step.Id,
-                (int)step.StepNumber,
-                step.Location?.Name ?? $"Paso {step.StepNumber}",
-                step.LocationId,
-                step.Location?.Name ?? $"Location {step.LocationId}"))
-            .ToList();
+
+        nextSteps = routeSteps.Select(step => new NextRouteStepResponse(step.Id, (int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", step.LocationId, step.Location?.Name ?? $"Location {step.LocationId}")).ToList();
 
         if (workOrder.WipItem is not null)
         {
@@ -160,32 +140,38 @@ public sealed class ScannerService : IScannerService
                 currentStepNumber = (int)currentStep.StepNumber;
                 currentStepName = currentStep.Location?.Name ?? $"Paso {currentStep.StepNumber}";
                 currentLocationName = currentStep.Location?.Name ?? $"Location {currentStep.LocationId}";
-                nextSteps = routeSteps
-                    .Where(step => step.StepNumber > currentStep.StepNumber)
-                    .Select(step => new NextRouteStepResponse(
-                        step.Id,
-                        (int)step.StepNumber,
-                        step.Location?.Name ?? $"Paso {step.StepNumber}",
-                        step.LocationId,
-                        step.Location?.Name ?? $"Location {step.LocationId}"))
-                    .ToList();
+                nextSteps = routeSteps.Where(step => step.StepNumber > currentStep.StepNumber).Select(step => new NextRouteStepResponse(step.Id, (int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", step.LocationId, step.Location?.Name ?? $"Location {step.LocationId}")).ToList();
             }
 
             var latestExecution = await _scannerRepository.GetLatestExecutionByWipItemIdAsync(workOrder.WipItem.Id, cancellationToken);
             if (latestExecution is not null)
             {
                 previousQuantity = (int)latestExecution.QtyIn;
+                statusUpdatedAt = latestExecution.CreatedAt.ToString("dd/MM/yyyy HH:mm"); // 🟢 Atrapamos la fecha real del último registro
+            }
+
+            foreach (var step in routeSteps.OrderBy(s => s.StepNumber))
+            {
+                if (step.StepNumber < currentStepNumber)
+                {
+                    var execution = workOrder.WipItem.StepExecutions?.FirstOrDefault(e => e.RouteStepId == step.Id);
+                    timeline.Add(new TimelineStepResponse((int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", "DONE", execution?.QtyIn.ToString() ?? "-", execution?.QtyScrap.ToString() ?? "0"));
+                }
+                else if (step.StepNumber == currentStepNumber)
+                {
+                    timeline.Add(new TimelineStepResponse((int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", "CURRENT", previousQuantity > 0 ? previousQuantity.ToString() : "-", "-"));
+                }
+                else
+                {
+                    timeline.Add(new TimelineStepResponse((int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", "PENDING", "-", "-"));
+                }
             }
         }
 
         return ServiceResponse<WorkOrderContextResponse>.Ok(new WorkOrderContextResponse(
-            IsNew: workOrder.WipItem is null,
-            PreviousQuantity: previousQuantity,
-            CurrentStepNumber: currentStepNumber,
-            CurrentStepName: currentStepName,
-            CurrentLocationName: currentLocationName,
-            RouteName: workOrder.Product?.Subfamily?.ActiveRoute?.Name,
-            NextSteps: nextSteps));
+            IsNew: workOrder.WipItem is null, OrderStatus: orderStatus, WipStatus: wipStatus, StatusUpdatedAt: statusUpdatedAt,
+            PreviousQuantity: previousQuantity, CurrentStepNumber: currentStepNumber, CurrentStepName: currentStepName,
+            CurrentLocationName: currentLocationName, RouteName: workOrder.Product?.Subfamily?.ActiveRoute?.Name, NextSteps: nextSteps, Timeline: timeline));
     }
 
     public async Task<ServiceResponse<RegisterScanResponse>> RegisterScanAsync(RegisterScanRequest request, CancellationToken cancellationToken)

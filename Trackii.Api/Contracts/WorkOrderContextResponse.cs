@@ -1,13 +1,17 @@
-namespace Trackii.Api.Contracts;
+﻿namespace Trackii.Api.Contracts;
 
 public sealed record WorkOrderContextResponse(
     bool IsNew,
+    string OrderStatus, // NUEVO
+    string WipStatus,   // NUEVO
+    string? StatusUpdatedAt, // NUEVO
     int PreviousQuantity,
     int CurrentStepNumber,
     string CurrentStepName,
     string CurrentLocationName,
     string? RouteName,
-    IReadOnlyList<NextRouteStepResponse> NextSteps);
+    IReadOnlyList<NextRouteStepResponse> NextSteps,
+    IReadOnlyList<TimelineStepResponse> Timeline);
 
 public sealed record NextRouteStepResponse(
     uint StepId,
@@ -15,3 +19,10 @@ public sealed record NextRouteStepResponse(
     string StepName,
     uint LocationId,
     string LocationName);
+
+public sealed record TimelineStepResponse(
+    int StepOrder,
+    string LocationName,
+    string State,
+    string Pieces,
+    string Scrap);
