@@ -147,23 +147,94 @@ public sealed class ScannerService : IScannerService
             if (latestExecution is not null)
             {
                 previousQuantity = (int)latestExecution.QtyIn;
-                statusUpdatedAt = latestExecution.CreatedAt.ToString("dd/MM/yyyy HH:mm"); // 🟢 Atrapamos la fecha real del último registro
+                statusUpdatedAt = latestExecution.CreatedAt.ToString("dd/MM/yyyy HH:mm");
             }
 
-            foreach (var step in routeSteps.OrderBy(s => s.StepNumber))
+            // 🔴 Buscar detalles de Scrap si la orden está cancelada
+            bool isCancelled = orderStatus == "Cancelled" || wipStatus == "Scrapped";
+            ScrapLog? scrapLog = null;
+            if (isCancelled)
             {
+                scrapLog = await _scannerRepository.GetScrapLogByWipItemIdAsync(workOrder.WipItem.Id, cancellationToken);
+            }
+
+            int previousStepPieces = -1; // Usado para calcular diferencia
+
+            var sortedSteps = routeSteps.OrderBy(s => s.StepNumber).ToList();
+            foreach (var step in sortedSteps)
+            {
+                // ✂️ Si está cancelada y ya pasamos el paso donde ocurrió el problema, cortamos.
+                if (isCancelled && step.StepNumber > currentStepNumber)
+                    break;
+
                 if (step.StepNumber < currentStepNumber)
                 {
                     var execution = workOrder.WipItem.StepExecutions?.FirstOrDefault(e => e.RouteStepId == step.Id);
-                    timeline.Add(new TimelineStepResponse((int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", "DONE", execution?.QtyIn.ToString() ?? "-", execution?.QtyScrap.ToString() ?? "0"));
+                    int currentPieces = execution != null ? (int)execution.QtyIn : 0;
+
+                    // 🧮 Calcular Scrap: Comparamos piezas de este paso vs. el paso que le siguió
+                    int calculatedScrap = 0;
+                    if (previousStepPieces != -1 && previousStepPieces > currentPieces)
+                    {
+                        calculatedScrap = previousStepPieces - currentPieces;
+                    }
+
+                    timeline.Add(new TimelineStepResponse(
+                        StepOrder: (int)step.StepNumber,
+                        LocationName: step.Location?.Name ?? $"Paso {step.StepNumber}",
+                        State: "DONE",
+                        Pieces: currentPieces > 0 ? currentPieces.ToString() : "-",
+                        Scrap: calculatedScrap > 0 ? calculatedScrap.ToString() : (execution?.QtyScrap > 0 ? execution.QtyScrap.ToString() : "-")
+                    ));
+
+                    // Guardamos para el ciclo de la siguiente estación
+                    if (currentPieces > 0)
+                    {
+                        previousStepPieces = currentPieces;
+                    }
                 }
                 else if (step.StepNumber == currentStepNumber)
                 {
-                    timeline.Add(new TimelineStepResponse((int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", "CURRENT", previousQuantity > 0 ? previousQuantity.ToString() : "-", "-"));
+                    int currentPieces = previousQuantity;
+
+                    int calculatedScrap = 0;
+                    if (previousStepPieces != -1 && previousStepPieces > currentPieces)
+                    {
+                        calculatedScrap = previousStepPieces - currentPieces;
+                    }
+
+                    // Asignar el estado visual si fue aquí donde murió la orden
+                    string state = isCancelled ? "CANCELLED" : "CURRENT";
+
+                    // 🟢 Creamos el texto formateado: "NombreCategoria | CODIGO - Descripcion"
+                    // 🟢 Creamos el texto formateado: "NombreCategoria | CODIGO - Descripcion"
+                    string? errorDisplay = null;
+                    if (scrapLog?.ErrorCode != null)
+                    {
+                        string categoryName = scrapLog.ErrorCode.ErrorCategory?.Name ?? "Sin Categoría"; // 🔥 Usamos ErrorCategory
+                        string codeName = scrapLog.ErrorCode.Code;
+                        string desc = scrapLog.ErrorCode.Description;
+                        errorDisplay = $"{categoryName} | {codeName} - {desc}";
+                    }
+                    timeline.Add(new TimelineStepResponse(
+                        StepOrder: (int)step.StepNumber,
+                        LocationName: step.Location?.Name ?? $"Paso {step.StepNumber}",
+                        State: state,
+                        Pieces: currentPieces > 0 ? currentPieces.ToString() : "-",
+                        Scrap: calculatedScrap > 0 ? calculatedScrap.ToString() : "-",
+                        ErrorCode: errorDisplay,
+                        Comments: scrapLog?.Comments
+                    ));
                 }
                 else
                 {
-                    timeline.Add(new TimelineStepResponse((int)step.StepNumber, step.Location?.Name ?? $"Paso {step.StepNumber}", "PENDING", "-", "-"));
+                    timeline.Add(new TimelineStepResponse(
+                        StepOrder: (int)step.StepNumber,
+                        LocationName: step.Location?.Name ?? $"Paso {step.StepNumber}",
+                        State: "PENDING",
+                        Pieces: "-",
+                        Scrap: "-"
+                    ));
                 }
             }
         }
@@ -173,7 +244,6 @@ public sealed class ScannerService : IScannerService
             PreviousQuantity: previousQuantity, CurrentStepNumber: currentStepNumber, CurrentStepName: currentStepName,
             CurrentLocationName: currentLocationName, RouteName: workOrder.Product?.Subfamily?.ActiveRoute?.Name, NextSteps: nextSteps, Timeline: timeline));
     }
-
     public async Task<ServiceResponse<RegisterScanResponse>> RegisterScanAsync(RegisterScanRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.WorkOrderNumber) || string.IsNullOrWhiteSpace(request.PartNumber))

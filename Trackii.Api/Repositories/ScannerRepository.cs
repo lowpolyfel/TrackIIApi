@@ -29,10 +29,8 @@ public sealed class ScannerRepository : IScannerRepository
                 .Include(wo => wo.WipItem)
                     .ThenInclude(wip => wip!.CurrentStep)
                     .ThenInclude(step => step!.Location)
-                // 👇 ESTAS DOS LÍNEAS SON CLAVE PARA QUE LA LÍNEA DE TIEMPO TENGA DATOS 👇
                 .Include(wo => wo.WipItem)
                     .ThenInclude(wip => wip!.StepExecutions)
-                // 👆 ================================================================= 👆
                 .Include(wo => wo.Product)
                     .ThenInclude(p => p!.Subfamily)
                     .ThenInclude(sf => sf!.ActiveRoute)
@@ -172,4 +170,11 @@ public sealed class ScannerRepository : IScannerRepository
         _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => _dbContext.SaveChangesAsync(cancellationToken);
+
+    public Task<ScrapLog?> GetScrapLogByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken) =>
+         _dbContext.ScrapLogs
+             .Include(sl => sl.ErrorCode)
+                 .ThenInclude(ec => ec!.ErrorCategory) // 🔥 Usamos ErrorCategory
+             .OrderByDescending(sl => sl.CreatedAt)
+             .FirstOrDefaultAsync(sl => sl.WipItemId == wipItemId, cancellationToken);
 }

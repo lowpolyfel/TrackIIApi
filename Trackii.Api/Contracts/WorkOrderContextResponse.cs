@@ -2,9 +2,9 @@
 
 public sealed record WorkOrderContextResponse(
     bool IsNew,
-    string OrderStatus, // NUEVO
-    string WipStatus,   // NUEVO
-    string? StatusUpdatedAt, // NUEVO
+    string OrderStatus,
+    string WipStatus,
+    string? StatusUpdatedAt,
     int PreviousQuantity,
     int CurrentStepNumber,
     string CurrentStepName,
@@ -25,4 +25,6 @@ public sealed record TimelineStepResponse(
     string LocationName,
     string State,
     string Pieces,
-    string Scrap);
+    string Scrap,
+    string? ErrorCode = null,
+    string? Comments = null);

@@ -35,4 +35,6 @@ public interface IScannerRepository
 
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    Task<ScrapLog?> GetScrapLogByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken);
 }
