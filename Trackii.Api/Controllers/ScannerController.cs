@@ -76,11 +76,17 @@ public sealed class ScannerController : ControllerBase
         return ToActionResult(response);
     }
 
-
     [HttpGet("ValidateRework/{noLote}")]
     public async Task<IActionResult> ValidateRework(string noLote, CancellationToken cancellationToken)
     {
         var response = await _scannerService.ValidateReworkAsync(noLote, cancellationToken);
+        return ToActionResult(response);
+    }
+
+    [HttpGet("ValidateAdvanceLocation/{noLote}")]
+    public async Task<IActionResult> ValidateAdvanceLocation(string noLote, [FromQuery] string partNumber, [FromQuery] uint deviceId, CancellationToken cancellationToken)
+    {
+        var response = await _scannerService.ValidateAdvanceLocationAsync(noLote, partNumber, deviceId, cancellationToken);
         return ToActionResult(response);
     }
 

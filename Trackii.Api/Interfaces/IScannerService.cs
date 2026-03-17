@@ -14,4 +14,5 @@ public interface IScannerService
     Task<ServiceResponse<ReworkResponse>> ProcessReworkAsync(ReworkRequest request, CancellationToken cancellationToken);
     Task<ServiceResponse<WipItemValidationResponse>> ValidateReworkAsync(string noLote, CancellationToken cancellationToken);
     Task<ServiceResponse<ReleaseWipItemResponse>> ReleaseWipItemAsync(string noLote, CancellationToken cancellationToken);
+    Task<ServiceResponse<bool>> ValidateAdvanceLocationAsync(string noLote, string partNumber, uint deviceId, CancellationToken cancellationToken);
 }

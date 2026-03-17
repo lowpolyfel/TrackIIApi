@@ -707,4 +707,41 @@ public sealed class ScannerService : IScannerService
             return ServiceResponse<ReworkResponse>.Fail("Error interno al procesar el retrabajo.");
         }
     }
+
+
+    public async Task<ServiceResponse<bool>> ValidateAdvanceLocationAsync(string noLote, string partNumber, uint deviceId, CancellationToken cancellationToken)
+    {
+        var device = await _scannerRepository.GetActiveDeviceByIdAsync(deviceId, cancellationToken);
+        if (device is null) return ServiceResponse<bool>.Fail("Dispositivo inválido.");
+
+        var product = await _scannerRepository.GetActiveProductWithSubfamilyAsync(partNumber.Trim(), cancellationToken);
+        if (product?.Subfamily?.ActiveRouteId is null) return ServiceResponse<bool>.Fail("El producto no tiene ruta configurada.");
+
+        var steps = await _scannerRepository.GetRouteStepsByRouteIdAsync(product.Subfamily.ActiveRouteId.Value, cancellationToken);
+        if (steps.Count == 0) return ServiceResponse<bool>.Fail("La ruta no tiene pasos.");
+
+        var workOrder = await _scannerRepository.GetWorkOrderForRegisterAsync(noLote.Trim(), cancellationToken);
+        var wipItem = workOrder is null ? null : await _scannerRepository.GetWipItemByWorkOrderIdAsync(workOrder.Id, cancellationToken);
+
+        RouteStep targetStep;
+        if (wipItem is null)
+        {
+            targetStep = steps.First();
+        }
+        else
+        {
+            var currentStep = steps.FirstOrDefault(s => s.Id == wipItem.CurrentStepId);
+            if (currentStep is null) return ServiceResponse<bool>.Fail("Paso actual inválido.");
+
+            targetStep = steps.FirstOrDefault(s => s.StepNumber == currentStep.StepNumber + 1);
+            if (targetStep is null) return ServiceResponse<bool>.Fail("La orden ya está en su último paso.");
+        }
+
+        if (targetStep.LocationId != device.LocationId)
+        {
+            return ServiceResponse<bool>.Fail($"La tableta debe estar en: {targetStep.Location?.Name}");
+        }
+
+        return ServiceResponse<bool>.Ok(true);
+    }
 }
