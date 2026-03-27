@@ -400,6 +400,7 @@ public sealed class ScannerService : IScannerService
                 }
             }
 
+            // 1. Registramos la ejecución con la cantidad buena y el scrap
             _scannerRepository.AddWipStepExecution(new WipStepExecution
             {
                 WipItem = wipItem!,
@@ -409,8 +410,23 @@ public sealed class ScannerService : IScannerService
                 LocationId = device.LocationId,
                 CreatedAt = DateTime.Now,
                 QtyIn = (uint)request.Quantity,
-                QtyScrap = 0
+                QtyScrap = (uint)request.ScrapQuantity // AHORA TOMA EL VALOR DE ANDROID
             });
+
+            // 2. Si hubo scrap, lo guardamos en la tabla de ScrapLogs
+            if (request.ScrapQuantity > 0 && request.ErrorCodeId.HasValue)
+            {
+                _scannerRepository.AddScrapLog(new ScrapLog
+                {
+                    WipItemId = wipItem!.Id,
+                    ErrorCodeId = request.ErrorCodeId.Value,
+                    RouteStepId = targetStep.Id,
+                    UserId = user.Id,
+                    Qty = (uint)request.ScrapQuantity,
+                    Comments = request.Comments,
+                    CreatedAt = DateTime.Now
+                });
+            }
 
             _scannerRepository.AddScanEvent(new ScanEvent
             {
