@@ -2,10 +2,6 @@ using System.Text.Json.Serialization;
 
 namespace Trackii.Api.Contracts;
 
-using System.Text.Json.Serialization;
-
-namespace Trackii.Api.Contracts;
-
 public sealed record RegisterScanRequest(
     [property: JsonPropertyName("WorkOrderNumber")]
     string WorkOrderNumber,
