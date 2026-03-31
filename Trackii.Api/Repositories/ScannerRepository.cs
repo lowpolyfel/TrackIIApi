@@ -172,9 +172,20 @@ public sealed class ScannerRepository : IScannerRepository
     public Task SaveChangesAsync(CancellationToken cancellationToken) => _dbContext.SaveChangesAsync(cancellationToken);
 
     public Task<ScrapLog?> GetScrapLogByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken) =>
-         _dbContext.ScrapLogs
-             .Include(sl => sl.ErrorCode)
-                 .ThenInclude(ec => ec!.ErrorCategory) // 🔥 Usamos ErrorCategory
-             .OrderByDescending(sl => sl.CreatedAt)
-             .FirstOrDefaultAsync(sl => sl.WipItemId == wipItemId, cancellationToken);
+          _dbContext.ScrapLogs
+              .Include(sl => sl.ErrorCode)
+                  .ThenInclude(ec => ec!.ErrorCategory) // 🔥 Usamos ErrorCategory
+              .OrderByDescending(sl => sl.CreatedAt)
+              .FirstOrDefaultAsync(sl => sl.WipItemId == wipItemId, cancellationToken);
+
+    public Task<int> GetDailyOrdersCountAsync(uint locationId, CancellationToken cancellationToken)
+    {
+        var today = DateTime.Today;
+        // Cuenta los WipItems únicos que han tenido un avance en esta localidad el día de hoy
+        return _dbContext.WipStepExecutions
+            .Where(e => e.LocationId == locationId && e.CreatedAt >= today)
+            .Select(e => e.WipItemId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+    }
 }

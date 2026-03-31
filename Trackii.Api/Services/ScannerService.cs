@@ -760,4 +760,17 @@ public sealed class ScannerService : IScannerService
 
         return ServiceResponse<bool>.Ok(true);
     }
+
+    public async Task<ServiceResponse<int>> GetDailyOrdersCountAsync(int locationId, CancellationToken cancellationToken)
+    {
+        if (locationId <= 0)
+        {
+            return ServiceResponse<int>.Fail("Localidad inválida.");
+        }
+
+        // Hacemos el cast a uint porque el Repositorio y la BD manejan el LocationId como uint
+        var count = await _scannerRepository.GetDailyOrdersCountAsync((uint)locationId, cancellationToken);
+
+        return ServiceResponse<int>.Ok(count);
+    }
 }

@@ -15,4 +15,5 @@ public interface IScannerService
     Task<ServiceResponse<WipItemValidationResponse>> ValidateReworkAsync(string noLote, CancellationToken cancellationToken);
     Task<ServiceResponse<ReleaseWipItemResponse>> ReleaseWipItemAsync(string noLote, CancellationToken cancellationToken);
     Task<ServiceResponse<bool>> ValidateAdvanceLocationAsync(string noLote, string partNumber, uint deviceId, CancellationToken cancellationToken);
+    Task<ServiceResponse<int>> GetDailyOrdersCountAsync(int locationId, CancellationToken cancellationToken);
 }

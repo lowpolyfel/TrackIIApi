@@ -111,6 +111,13 @@ public sealed class ScannerController : ControllerBase
         return Ok(response);
     }
 
+    [HttpGet("daily-orders-count")]
+    public async Task<IActionResult> GetDailyOrdersCount([FromQuery] int locationId, CancellationToken cancellationToken)
+    {
+        var response = await _scannerService.GetDailyOrdersCountAsync(locationId, cancellationToken);
+        return ToActionResult(response);
+    }
+
     private IActionResult ToActionResult<T>(ServiceResponse<T> response)
     {
         if (response.Success)

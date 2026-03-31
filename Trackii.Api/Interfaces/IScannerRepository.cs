@@ -37,4 +37,5 @@ public interface IScannerRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
 
     Task<ScrapLog?> GetScrapLogByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken);
+    Task<int> GetDailyOrdersCountAsync(uint locationId, CancellationToken cancellationToken);
 }
