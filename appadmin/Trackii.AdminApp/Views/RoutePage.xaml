@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Trackii.AdminApp.Views.RoutePage"
+             Title="Ruta y captura">
+    <Grid RowDefinitions="Auto,*">
+        <VerticalStackLayout Padding="16" Spacing="10">
+            <Label Text="{Binding Header}" FontAttributes="Bold" />
+            <Button Text="Cargar catálogos" Command="{Binding LoadDataCommand}" />
+            <Entry Keyboard="Numeric" Placeholder="Piezas actuales" Text="{Binding NewQuantity}" />
+            <Label Text="{Binding CalculatedScrap, StringFormat='Scrap automático: {0}'}" />
+            <Picker Title="Categoría de error" ItemsSource="{Binding Categories}" ItemDisplayBinding="{Binding Name}" SelectedItem="{Binding SelectedCategory}" />
+            <Picker Title="Código de error" ItemsSource="{Binding ErrorCodes}" ItemDisplayBinding="{Binding Code}" SelectedItem="{Binding SelectedCode}" />
+            <Editor Placeholder="Comentarios" Text="{Binding Comments}" AutoSize="TextChanges" />
+            <Button Text="Guardar paso" Command="{Binding SaveCommand}" BackgroundColor="#1D4ED8" TextColor="White" />
+        </VerticalStackLayout>
+
+        <CollectionView Grid.Row="1" Margin="16" ItemsSource="{Binding Timeline}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border Stroke="#CBD5E1" StrokeThickness="1" Padding="8" Margin="0,4">
+                        <VerticalStackLayout>
+                            <Label Text="{Binding LocationName}" FontAttributes="Bold" />
+                            <Label Text="{Binding State}" />
+                            <Label Text="{Binding Pieces, StringFormat='Piezas: {0}'}" />
+                            <Label Text="{Binding Scrap, StringFormat='Scrap: {0}'}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>
