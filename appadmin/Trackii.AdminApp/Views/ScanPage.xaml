@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Trackii.AdminApp.Views.ScanPage"
+             Title="Escaneo inicial">
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="14">
+            <Label Text="Registrar Work Orders" FontSize="24" FontAttributes="Bold" />
+            <Entry Placeholder="Código de lote (WO)" Text="{Binding WorkOrderNumber}" />
+            <Entry Placeholder="Código de producto" Text="{Binding PartNumber}" />
+            <Button Text="Buscar en API" Command="{Binding ValidateCommand}" />
+            <Label Text="{Binding Status}" TextColor="#374151" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
