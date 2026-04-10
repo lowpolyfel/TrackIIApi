@@ -10,5 +10,6 @@ public sealed class RouteStep
     public Route? Route { get; set; }
     public Location? Location { get; set; }
     public ICollection<WipStepExecution> StepExecutions { get; set; } = new List<WipStepExecution>();
-    public ICollection<ScrapLog> ScrapLogs { get; set; } = new List<ScrapLog>();
+    public ICollection<ReworkLog> ReworkLogs { get; set; } = new List<ReworkLog>();
+    public ICollection<ProductionStats> ProductionStats { get; set; } = new List<ProductionStats>();
 }

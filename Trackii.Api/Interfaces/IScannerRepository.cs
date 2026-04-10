@@ -28,14 +28,17 @@ public interface IScannerRepository
     Task<List<ErrorCategory>> GetActiveErrorCategoriesAsync(CancellationToken cancellationToken);
     Task<List<ErrorCode>> GetActiveErrorCodesByCategoryAsync(uint categoryId, CancellationToken cancellationToken);
     Task<ErrorCode?> GetActiveErrorCodeByIdAsync(uint errorCodeId, CancellationToken cancellationToken);
+    void AddScrapItem(ScrapItem scrapItem);
     void AddScrapLog(ScrapLog scrapLog);
     Task ScrapOrderAsync(WorkOrder workOrder, WipItem wipItem, User user, uint errorCodeId, uint quantity, string? comments, CancellationToken cancellationToken);
-    Task AddWipReworkLogAsync(WipReworkLog log, CancellationToken cancellationToken);
+    void AddReworkItem(ReworkItem reworkItem);
+    Task AddReworkLogAsync(ReworkLog log, CancellationToken cancellationToken);
     Task<WipItem?> GetWipItemByLotNumberAsync(string noLote, CancellationToken cancellationToken);
 
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 
     Task<ScrapLog?> GetScrapLogByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken);
+    Task<ScrapItem?> GetLatestScrapItemByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken);
     Task<int> GetDailyOrdersCountAsync(uint locationId, CancellationToken cancellationToken);
 }

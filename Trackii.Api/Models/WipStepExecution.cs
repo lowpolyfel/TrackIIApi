@@ -17,4 +17,5 @@ public sealed class WipStepExecution
     public User? User { get; set; }
     public Device? Device { get; set; }
     public Location? Location { get; set; }
+    public ICollection<ScrapItem> ScrapItems { get; set; } = new List<ScrapItem>();
 }
