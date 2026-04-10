@@ -116,6 +116,8 @@ public sealed class ScannerRepository : IScannerRepository
         _dbContext.ErrorCodes
             .FirstOrDefaultAsync(code => code.Id == errorCodeId && code.Active, cancellationToken);
 
+    public void AddScrapItem(ScrapItem scrapItem) => _dbContext.ScrapItems.Add(scrapItem);
+
     public void AddScrapLog(ScrapLog scrapLog) => _dbContext.ScrapLogs.Add(scrapLog);
 
     public async Task ScrapOrderAsync(WorkOrder workOrder, WipItem wipItem, User user, uint errorCodeId, uint quantity, string? comments, CancellationToken cancellationToken)
@@ -123,13 +125,28 @@ public sealed class ScannerRepository : IScannerRepository
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         try
         {
+            var latestExecution = await GetLatestExecutionByWipItemIdAsync(wipItem.Id, cancellationToken);
+            if (latestExecution is null)
+            {
+                throw new InvalidOperationException("No hay ejecución WIP para registrar scrap.");
+            }
+
+            var scrapItem = new ScrapItem
+            {
+                WipStepExecutionId = latestExecution.Id,
+                TotalQtyScrapped = quantity,
+                Disposition = ScrapDisposition.Quarantine,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+            _dbContext.ScrapItems.Add(scrapItem);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
             _dbContext.ScrapLogs.Add(new ScrapLog
             {
-                WipItemId = wipItem.Id,
+                ScrapItemId = scrapItem.Id,
                 ErrorCodeId = errorCodeId,
-                RouteStepId = wipItem.CurrentStepId,
-                UserId = user.Id,
-                Qty = quantity,
+                QtyScrapped = quantity,
                 Comments = comments,
                 CreatedAt = DateTime.Now
             });
@@ -155,9 +172,11 @@ public sealed class ScannerRepository : IScannerRepository
         }
     }
 
-    public async Task AddWipReworkLogAsync(WipReworkLog log, CancellationToken cancellationToken)
+    public void AddReworkItem(ReworkItem reworkItem) => _dbContext.ReworkItems.Add(reworkItem);
+
+    public async Task AddReworkLogAsync(ReworkLog log, CancellationToken cancellationToken)
     {
-        _dbContext.WipReworkLogs.Add(log);
+        _dbContext.ReworkLogs.Add(log);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -174,9 +193,19 @@ public sealed class ScannerRepository : IScannerRepository
     public Task<ScrapLog?> GetScrapLogByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken) =>
           _dbContext.ScrapLogs
               .Include(sl => sl.ErrorCode)
-                  .ThenInclude(ec => ec!.ErrorCategory) // 🔥 Usamos ErrorCategory
+                  .ThenInclude(ec => ec!.ErrorCategory)
+              .Include(sl => sl.ScrapItem)
+                  .ThenInclude(si => si!.WipStepExecution)
+              .Where(sl => sl.ScrapItem != null && sl.ScrapItem.WipStepExecution != null && sl.ScrapItem.WipStepExecution.WipItemId == wipItemId)
               .OrderByDescending(sl => sl.CreatedAt)
-              .FirstOrDefaultAsync(sl => sl.WipItemId == wipItemId, cancellationToken);
+              .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<ScrapItem?> GetLatestScrapItemByWipItemIdAsync(uint wipItemId, CancellationToken cancellationToken) =>
+        _dbContext.ScrapItems
+            .Include(si => si.WipStepExecution)
+            .Where(si => si.WipStepExecution != null && si.WipStepExecution.WipItemId == wipItemId)
+            .OrderByDescending(si => si.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
     public Task<int> GetDailyOrdersCountAsync(uint locationId, CancellationToken cancellationToken)
     {
