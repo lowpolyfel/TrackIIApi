@@ -413,19 +413,30 @@ public sealed class ScannerService : IScannerService
                 QtyScrap = (uint)request.ScrapQuantity // AHORA TOMA EL VALOR DE ANDROID
             });
 
-            // 2. Si hubo scrap, lo guardamos en la tabla de ScrapLogs
+            // 2. Si hubo scrap, se registra bajo el patrón Item & Log
             if (request.ScrapQuantity > 0 && request.ErrorCodeId.HasValue)
             {
-                _scannerRepository.AddScrapLog(new ScrapLog
+                var latestExecutionForScrap = await _scannerRepository.GetLatestExecutionByWipItemIdAsync(wipItem!.Id, cancellationToken);
+                if (latestExecutionForScrap is not null)
                 {
-                    WipItemId = wipItem!.Id,
-                    ErrorCodeId = request.ErrorCodeId.Value,
-                    RouteStepId = targetStep.Id,
-                    UserId = user.Id,
-                    Qty = (uint)request.ScrapQuantity,
-                    Comments = request.Comments,
-                    CreatedAt = DateTime.Now
-                });
+                    var scrapItem = new ScrapItem
+                    {
+                        WipStepExecutionId = latestExecutionForScrap.Id,
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
+                    _scannerRepository.AddScrapItem(scrapItem);
+                    await _scannerRepository.SaveChangesAsync(cancellationToken);
+
+                    _scannerRepository.AddScrapLog(new ScrapLog
+                    {
+                        ScrapItemId = scrapItem.Id,
+                        ErrorCodeId = request.ErrorCodeId.Value,
+                        QtyScrapped = (uint)request.ScrapQuantity,
+                        Comments = request.Comments,
+                        CreatedAt = DateTime.Now
+                    });
+                }
             }
 
             _scannerRepository.AddScanEvent(new ScanEvent
@@ -569,14 +580,26 @@ public sealed class ScannerService : IScannerService
         var errorCode = await _scannerRepository.GetActiveErrorCodeByIdAsync(request.ErrorCodeId, cancellationToken);
         if (errorCode is null) return ServiceResponse<ScrapResponse>.Fail("Código de error inválido.");
 
-        // Solo insertamos el log de scrap, sin modificar el status de la orden
+        var latestExecution = await _scannerRepository.GetLatestExecutionByWipItemIdAsync(wipItem.Id, cancellationToken);
+        if (latestExecution is null)
+        {
+            return ServiceResponse<ScrapResponse>.Fail("No hay ejecución disponible para registrar scrap.");
+        }
+
+        var scrapItem = new ScrapItem
+        {
+            WipStepExecutionId = latestExecution.Id,
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
+        _scannerRepository.AddScrapItem(scrapItem);
+        await _scannerRepository.SaveChangesAsync(cancellationToken);
+
         _scannerRepository.AddScrapLog(new ScrapLog
         {
-            WipItemId = wipItem.Id,
+            ScrapItemId = scrapItem.Id,
             ErrorCodeId = errorCode.Id,
-            RouteStepId = wipItem.CurrentStepId, // Se registra en el paso donde ocurrió la pérdida
-            UserId = user.Id,
-            Qty = request.Quantity,
+            QtyScrapped = request.Quantity,
             Comments = request.Comments,
             CreatedAt = DateTime.Now
         });
@@ -701,18 +724,29 @@ public sealed class ScannerService : IScannerService
 
             await _scannerRepository.SaveChangesAsync(cancellationToken);
 
-            var reworkLog = new WipReworkLog
+            var reworkItem = new ReworkItem
             {
-                WipItemId = workOrder.WipItem.Id,
-                LocationId = request.LocationId,
+                WorkOrderId = workOrder.Id,
                 UserId = request.UserId,
-                DeviceId = request.DeviceId,
-                Qty = request.Quantity,
-                Reason = request.Reason,
+                Status = request.IsRelease ? "RELEASED" : "HOLD",
+                Comment = request.Reason,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+            _scannerRepository.AddReworkItem(reworkItem);
+            await _scannerRepository.SaveChangesAsync(cancellationToken);
+
+            var reworkLog = new ReworkLog
+            {
+                ReworkItemId = reworkItem.Id,
+                TargetRouteStepId = workOrder.WipItem.CurrentStepId,
+                QtyReworked = request.Quantity,
+                Reason = ReworkReason.Other,
+                Comments = request.Reason,
                 CreatedAt = DateTime.Now
             };
 
-            await _scannerRepository.AddWipReworkLogAsync(reworkLog, cancellationToken);
+            await _scannerRepository.AddReworkLogAsync(reworkLog, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return ServiceResponse<ReworkResponse>.Ok(new ReworkResponse(true, "Retrabajo registrado exitosamente."));

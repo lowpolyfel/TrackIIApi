@@ -7,4 +7,6 @@ public sealed class Location
     public bool Active { get; set; }
 
     public ICollection<Device> Devices { get; set; } = new List<Device>();
+    public ICollection<Warehouse> Warehouses { get; set; } = new List<Warehouse>();
+    public ICollection<ProductionStats> ProductionStats { get; set; } = new List<ProductionStats>();
 }

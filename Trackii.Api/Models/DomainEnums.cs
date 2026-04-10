@@ -24,6 +24,51 @@ public enum WorkOrderStatus
     Cancelled
 }
 
+public enum ReworkReason
+{
+    DefectiveComponent,
+    AssemblyError,
+    TestFailure,
+    AestheticDetails,
+    OperatorError,
+    Other
+}
+
+public enum ScrapDisposition
+{
+    Quarantine,
+    Destroy,
+    ReturnToVendor,
+    Reuse,
+    Other
+}
+
+public enum WorkOrderEventType
+{
+    StatusChange,
+    QtyAdjustment,
+    PriorityChange,
+    DateChange,
+    Canceled
+}
+
+public enum StockMovementType
+{
+    In,
+    Out,
+    Adjust,
+    Transfer,
+    Scrap
+}
+
+public enum StockReferenceType
+{
+    WorkOrder,
+    Manual,
+    Transfer,
+    Adjustment
+}
+
 public static class DomainEnumMapper
 {
     public static string ToDatabaseValue(this ScanType scanType) => scanType switch
