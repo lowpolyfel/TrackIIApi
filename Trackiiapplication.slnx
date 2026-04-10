@@ -1,5 +1,3 @@
 <Solution>
-  <Project Path="MauiApp1/altasbajas.csproj" Id="4647fcdb-b91b-4a08-827a-2086862792d3" />
   <Project Path="Trackii.Api/Trackii.Api.csproj" Id="f13e57f5-24e8-4e87-a363-7ca4e7f93c07" />
-  <Project Path="appadmin/Trackii.AdminApp/Trackii.AdminApp.csproj" Id="9eb8bb11-69ea-4868-b6ab-c760f45536d2" />
 </Solution>
