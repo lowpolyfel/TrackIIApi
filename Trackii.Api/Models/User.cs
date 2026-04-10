@@ -10,7 +10,6 @@ public sealed class User
 
     public Role? Role { get; set; }
     public ICollection<Device> Devices { get; set; } = new List<Device>();
-    public ICollection<Token> TokensCreated { get; set; } = new List<Token>();
     public ICollection<ReworkItem> ReworkItems { get; set; } = new List<ReworkItem>();
     public ICollection<WorkOrderItem> WorkOrderItems { get; set; } = new List<WorkOrderItem>();
     public ICollection<StockMovementItem> StockMovementItems { get; set; } = new List<StockMovementItem>();

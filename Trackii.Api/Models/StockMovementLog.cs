@@ -6,7 +6,7 @@ public sealed class StockMovementLog
     public uint StockMovementItemId { get; set; }
     public uint ProductId { get; set; }
     public uint WarehouseId { get; set; }
-    public uint Qty { get; set; }
+    public int Qty { get; set; }
     public DateTime CreatedAt { get; set; }
 
     public virtual StockMovementItem? StockMovementItem { get; set; }

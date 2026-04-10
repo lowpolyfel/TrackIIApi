@@ -422,8 +422,6 @@ public sealed class ScannerService : IScannerService
                     var scrapItem = new ScrapItem
                     {
                         WipStepExecutionId = latestExecutionForScrap.Id,
-                        TotalQtyScrapped = (uint)request.ScrapQuantity,
-                        Disposition = ScrapDisposition.Quarantine,
                         CreatedAt = DateTime.Now,
                         UpdatedAt = DateTime.Now
                     };
@@ -591,8 +589,6 @@ public sealed class ScannerService : IScannerService
         var scrapItem = new ScrapItem
         {
             WipStepExecutionId = latestExecution.Id,
-            TotalQtyScrapped = request.Quantity,
-            Disposition = ScrapDisposition.Quarantine,
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now
         };

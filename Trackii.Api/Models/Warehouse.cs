@@ -4,7 +4,7 @@ public sealed class Warehouse
 {
     public uint Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    public uint LocationId { get; set; }
+    public uint? LocationId { get; set; }
     public bool Active { get; set; }
     public DateTime CreatedAt { get; set; }
 

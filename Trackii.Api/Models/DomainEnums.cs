@@ -26,9 +26,11 @@ public enum WorkOrderStatus
 
 public enum ReworkReason
 {
-    Defect,
-    ProcessDeviation,
-    QualityCorrection,
+    DefectiveComponent,
+    AssemblyError,
+    TestFailure,
+    AestheticDetails,
+    OperatorError,
     Other
 }
 
@@ -43,29 +45,28 @@ public enum ScrapDisposition
 
 public enum WorkOrderEventType
 {
-    Create,
-    Update,
     StatusChange,
-    Close,
-    Reopen,
-    Comment
+    QtyAdjustment,
+    PriorityChange,
+    DateChange,
+    Canceled
 }
 
 public enum StockMovementType
 {
     In,
     Out,
+    Adjust,
     Transfer,
-    Adjustment
+    Scrap
 }
 
 public enum StockReferenceType
 {
     WorkOrder,
-    Scrap,
-    Rework,
-    Purchase,
-    Manual
+    Manual,
+    Transfer,
+    Adjustment
 }
 
 public static class DomainEnumMapper

@@ -4,8 +4,6 @@ public sealed class ScrapItem
 {
     public uint Id { get; set; }
     public uint WipStepExecutionId { get; set; }
-    public uint TotalQtyScrapped { get; set; }
-    public ScrapDisposition Disposition { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

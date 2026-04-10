@@ -46,14 +46,121 @@ public sealed class TrackiiDbContext : DbContext
         modelBuilder.Entity<Product>().Property(e => e.SubfamilyId).HasColumnName("subfamily_id");
         modelBuilder.Entity<WipItem>().Property(e => e.WorkOrderId).HasColumnName("work_order_id");
 
-        modelBuilder.Entity<InventoryBalance>().HasKey(e => new { e.ProductId, e.WarehouseId });
-        modelBuilder.Entity<ProductionStats>().HasKey(e => new { e.LocationId, e.RouteStepId, e.WorkOrderId, e.DateKey });
+        modelBuilder.Entity<ScrapItem>(entity =>
+        {
+            entity.ToTable("scrap_item");
+            entity.Property(e => e.WipStepExecutionId).HasColumnName("wip_step_execution_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+        });
 
-        modelBuilder.Entity<Token>()
-            .HasOne(t => t.CreatedByUser)
-            .WithMany(u => u.TokensCreated)
-            .HasForeignKey(t => t.CreatedBy)
-            .IsRequired(false);
+        modelBuilder.Entity<ScrapLog>(entity =>
+        {
+            entity.ToTable("scrap_log");
+            entity.Property(e => e.ScrapItemId).HasColumnName("scrap_item_id");
+            entity.Property(e => e.ErrorCodeId).HasColumnName("error_code_id");
+            entity.Property(e => e.QtyScrapped).HasColumnName("qty_scrapped");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<ReworkItem>(entity =>
+        {
+            entity.ToTable("rework_item");
+            entity.Property(e => e.WorkOrderId).HasColumnName("work_order_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<ReworkLog>(entity =>
+        {
+            entity.ToTable("rework_log");
+            entity.Property(e => e.ReworkItemId).HasColumnName("rework_item_id");
+            entity.Property(e => e.TargetRouteStepId).HasColumnName("target_route_step_id");
+            entity.Property(e => e.QtyReworked).HasColumnName("qty_reworked");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<WorkOrderItem>(entity =>
+        {
+            entity.ToTable("work_order_item");
+            entity.Property(e => e.WorkOrderId).HasColumnName("work_order_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<WorkOrderLog>(entity =>
+        {
+            entity.ToTable("work_order_log");
+            entity.Property(e => e.WorkOrderItemId).HasColumnName("work_order_item_id");
+            entity.Property(e => e.EventType).HasColumnName("event_type");
+            entity.Property(e => e.FieldName).HasColumnName("field_name");
+            entity.Property(e => e.OldValue).HasColumnName("old_value");
+            entity.Property(e => e.NewValue).HasColumnName("new_value");
+            entity.Property(e => e.ModifiedAt).HasColumnName("modified_at");
+        });
+
+        modelBuilder.Entity<Warehouse>(entity =>
+        {
+            entity.ToTable("warehouse");
+            entity.Property(e => e.LocationId).HasColumnName("location_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<StockMovementItem>(entity =>
+        {
+            entity.ToTable("stock_movement_item");
+            entity.Property(e => e.MovementType).HasColumnName("movement_type");
+            entity.Property(e => e.ReferenceType).HasColumnName("reference_type");
+            entity.Property(e => e.ReferenceId).HasColumnName("reference_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<StockMovementLog>(entity =>
+        {
+            entity.ToTable("stock_movement_log");
+            entity.Property(e => e.StockMovementItemId).HasColumnName("stock_movement_item_id");
+            entity.Property(e => e.ProductId).HasColumnName("product_id");
+            entity.Property(e => e.WarehouseId).HasColumnName("warehouse_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<InventoryBalance>(entity =>
+        {
+            entity.ToTable("inventory_balance");
+            entity.HasKey(e => new { e.ProductId, e.WarehouseId });
+            entity.Property(e => e.ProductId).HasColumnName("product_id");
+            entity.Property(e => e.WarehouseId).HasColumnName("warehouse_id");
+            entity.Property(e => e.QtyOnHand).HasColumnName("qty_on_hand");
+            entity.Property(e => e.QtyReserved).HasColumnName("qty_reserved");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<InventorySnapshot>(entity =>
+        {
+            entity.ToTable("inventory_snapshot");
+            entity.Property(e => e.ProductId).HasColumnName("product_id");
+            entity.Property(e => e.WarehouseId).HasColumnName("warehouse_id");
+            entity.Property(e => e.SnapshotAt).HasColumnName("snapshot_at");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<ProductionStats>(entity =>
+        {
+            entity.ToTable("production_stats");
+            entity.HasKey(e => new { e.LocationId, e.RouteStepId, e.WorkOrderId, e.DateKey });
+            entity.Property(e => e.LocationId).HasColumnName("location_id");
+            entity.Property(e => e.RouteStepId).HasColumnName("route_step_id");
+            entity.Property(e => e.WorkOrderId).HasColumnName("work_order_id");
+            entity.Property(e => e.DateKey).HasColumnName("date_key");
+            entity.Property(e => e.TotalQtyIn).HasColumnName("total_qty_in");
+            entity.Property(e => e.TotalQtyScrap).HasColumnName("total_qty_scrap");
+            entity.Property(e => e.TotalQtyRework).HasColumnName("total_qty_rework");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+        });
 
         modelBuilder.Entity<ScrapLog>()
             .HasOne(s => s.ScrapItem)
@@ -104,5 +211,56 @@ public sealed class TrackiiDbContext : DbContext
             .HasOne(s => s.WipStepExecution)
             .WithMany(w => w.ScrapItems)
             .HasForeignKey(s => s.WipStepExecutionId);
+
+        modelBuilder.Entity<Warehouse>()
+            .HasOne(w => w.Location)
+            .WithMany(l => l.Warehouses)
+            .HasForeignKey(w => w.LocationId)
+            .IsRequired(false);
+
+        modelBuilder.Entity<StockMovementItem>()
+            .HasOne(s => s.User)
+            .WithMany(u => u.StockMovementItems)
+            .HasForeignKey(s => s.UserId);
+
+        modelBuilder.Entity<StockMovementLog>()
+            .HasOne(s => s.StockMovementItem)
+            .WithMany(i => i.StockMovementLogs)
+            .HasForeignKey(s => s.StockMovementItemId);
+
+        modelBuilder.Entity<StockMovementLog>()
+            .HasOne(s => s.Product)
+            .WithMany(p => p.StockMovementLogs)
+            .HasForeignKey(s => s.ProductId);
+
+        modelBuilder.Entity<StockMovementLog>()
+            .HasOne(s => s.Warehouse)
+            .WithMany(w => w.StockMovementLogs)
+            .HasForeignKey(s => s.WarehouseId);
+
+        modelBuilder.Entity<InventoryBalance>()
+            .HasOne(i => i.Product)
+            .WithMany(p => p.InventoryBalances)
+            .HasForeignKey(i => i.ProductId);
+
+        modelBuilder.Entity<InventoryBalance>()
+            .HasOne(i => i.Warehouse)
+            .WithMany(w => w.InventoryBalances)
+            .HasForeignKey(i => i.WarehouseId);
+
+        modelBuilder.Entity<InventorySnapshot>()
+            .HasOne(i => i.Product)
+            .WithMany(p => p.InventorySnapshots)
+            .HasForeignKey(i => i.ProductId);
+
+        modelBuilder.Entity<InventorySnapshot>()
+            .HasOne(i => i.Warehouse)
+            .WithMany(w => w.InventorySnapshots)
+            .HasForeignKey(i => i.WarehouseId);
+
+        modelBuilder.Entity<InventorySnapshot>()
+            .HasOne(i => i.CreatedByUser)
+            .WithMany(u => u.InventorySnapshotsCreated)
+            .HasForeignKey(i => i.CreatedBy);
     }
 }

@@ -134,8 +134,6 @@ public sealed class ScannerRepository : IScannerRepository
             var scrapItem = new ScrapItem
             {
                 WipStepExecutionId = latestExecution.Id,
-                TotalQtyScrapped = quantity,
-                Disposition = ScrapDisposition.Quarantine,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
             };
