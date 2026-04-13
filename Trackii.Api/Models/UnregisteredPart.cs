@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class UnregisteredPart
+public class UnregisteredPart
 {
     public uint PartId { get; set; }
     public string PartNumber { get; set; } = string.Empty;

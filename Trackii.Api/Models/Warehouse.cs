@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class Warehouse
+public class Warehouse
 {
     public uint Id { get; set; }
     public string Name { get; set; } = string.Empty;

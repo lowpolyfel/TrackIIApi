@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class InventorySnapshot
+public class InventorySnapshot
 {
     public uint Id { get; set; }
     public uint ProductId { get; set; }

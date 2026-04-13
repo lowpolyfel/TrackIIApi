@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class ScanEvent
+public class ScanEvent
 {
     public uint Id { get; set; }
     public uint WipItemId { get; set; }

@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class WorkOrder
+public class WorkOrder
 {
     public uint Id { get; set; }
     public string WoNumber { get; set; } = string.Empty;

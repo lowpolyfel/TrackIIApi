@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class RouteStep
+public class RouteStep
 {
     public uint Id { get; set; }
     public uint RouteId { get; set; }

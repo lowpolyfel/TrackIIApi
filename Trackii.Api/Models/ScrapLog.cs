@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class ScrapLog
+public class ScrapLog
 {
     public uint Id { get; set; }
     public uint ScrapItemId { get; set; }

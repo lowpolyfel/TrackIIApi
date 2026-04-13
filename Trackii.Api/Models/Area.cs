@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class Area
+public class Area
 {
     public uint Id { get; set; }
     public string Name { get; set; } = string.Empty;

@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class Product
+public class Product
 {
     public uint Id { get; set; }
     public uint SubfamilyId { get; set; }

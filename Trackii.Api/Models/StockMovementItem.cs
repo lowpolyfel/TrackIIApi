@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class StockMovementItem
+public class StockMovementItem
 {
     public uint Id { get; set; }
     public StockMovementType MovementType { get; set; }
