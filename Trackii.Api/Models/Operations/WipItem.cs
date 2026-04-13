@@ -6,12 +6,11 @@ public class WipItem
     public uint WorkOrderId { get; set; }
     public uint CurrentStepId { get; set; }
     public string Status { get; set; } = "ACTIVE";
+    public uint CurrentQty { get; set; } = 0;
     public DateTime CreatedAt { get; set; }
-    public uint RouteId { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
     public WorkOrder? WorkOrder { get; set; }
-    public Route? Route { get; set; }
     public RouteStep? CurrentStep { get; set; }
     public ICollection<WipStepExecution> StepExecutions { get; set; } = new List<WipStepExecution>();
-    public ICollection<ScanEvent> ScanEvents { get; set; } = new List<ScanEvent>();
 }
