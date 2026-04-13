@@ -8,6 +8,34 @@ public enum ScanType
     Manual
 }
 
+public enum ScanEventStatus
+{
+    SUCCESS,
+    FAILED
+}
+
+public enum ScanEventErrorType
+{
+    NONE,
+    NETWORK_FAILURE,
+    UNREGISTERED_PART,
+    FIFO_VIOLATION,
+    WAIT_TIME_VIOLATION,
+    INVALID_ROUTE_STEP,
+    ORDER_COMPLETED,
+    ORDER_CANCELED,
+    EXCESSIVE_QUANTITY,
+    UNAUTHORIZED_DEVICE,
+    INVALID_TOKEN
+}
+
+public enum UnregisteredPartStatus
+{
+    PENDING,
+    RESOLVED,
+    DISCARDED
+}
+
 public enum WipItemStatus
 {
     Active,

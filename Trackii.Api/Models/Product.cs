@@ -6,6 +6,8 @@ public class Product
     public uint SubfamilyId { get; set; }
     public string PartNumber { get; set; } = string.Empty;
     public bool Active { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
     public Subfamily? Subfamily { get; set; }
     public ICollection<WorkOrder> WorkOrders { get; set; } = new List<WorkOrder>();

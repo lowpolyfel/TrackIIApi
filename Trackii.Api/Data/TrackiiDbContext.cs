@@ -10,15 +10,18 @@ public sealed class TrackiiDbContext : DbContext
 
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Token> Tokens => Set<Token>();
+    public DbSet<SystemToken> SystemTokens => Set<SystemToken>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<Area> Areas => Set<Area>();
     public DbSet<Family> Families => Set<Family>();
     public DbSet<Subfamily> Subfamilies => Set<Subfamily>();
+    public DbSet<SubfamilyActiveRoute> SubfamilyActiveRoutes => Set<SubfamilyActiveRoute>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<RouteModel> Routes => Set<RouteModel>();
     public DbSet<RouteStep> RouteSteps => Set<RouteStep>();
+    public DbSet<RouteSubStep> RouteSubSteps => Set<RouteSubStep>();
     public DbSet<WorkOrder> WorkOrders => Set<WorkOrder>();
     public DbSet<WipItem> WipItems => Set<WipItem>();
     public DbSet<WipStepExecution> WipStepExecutions => Set<WipStepExecution>();
@@ -39,6 +42,32 @@ public sealed class TrackiiDbContext : DbContext
     public DbSet<InventorySnapshot> InventorySnapshots => Set<InventorySnapshot>();
     public DbSet<ProductionStats> ProductionStats => Set<ProductionStats>();
 
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var entries = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+        foreach (var entityEntry in entries)
+        {
+            var updatedAtProperty = entityEntry.Metadata.FindProperty("UpdatedAt");
+            if (updatedAtProperty != null)
+            {
+                entityEntry.Property("UpdatedAt").CurrentValue = DateTime.Now;
+            }
+
+            if (entityEntry.State == EntityState.Added)
+            {
+                var createdAtProperty = entityEntry.Metadata.FindProperty("CreatedAt");
+                if (createdAtProperty != null)
+                {
+                    entityEntry.Property("CreatedAt").CurrentValue = DateTime.Now;
+                }
+            }
+        }
+
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Family>().Property(e => e.AreaId).HasColumnName("area_id");
@@ -49,7 +78,6 @@ public sealed class TrackiiDbContext : DbContext
         modelBuilder.Entity<ScrapItem>(entity =>
         {
             entity.ToTable("scrap_item");
-            entity.Property(e => e.WipStepExecutionId).HasColumnName("wip_step_execution_id");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
         });
@@ -161,6 +189,28 @@ public sealed class TrackiiDbContext : DbContext
             entity.Property(e => e.TotalQtyRework).HasColumnName("total_qty_rework");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
         });
+
+        modelBuilder.Entity<SubfamilyActiveRoute>()
+            .ToTable("subfamily_active_route");
+
+        modelBuilder.Entity<SubfamilyActiveRoute>()
+            .HasOne(sar => sar.Subfamily)
+            .WithOne(sf => sf.ActiveRouteMapping)
+            .HasForeignKey<SubfamilyActiveRoute>(sar => sar.SubfamilyId);
+
+        modelBuilder.Entity<RouteSubStep>()
+            .ToTable("route_sub_step");
+
+        modelBuilder.Entity<SystemToken>()
+            .ToTable("system_tokens");
+
+        modelBuilder.Entity<ScanEvent>()
+            .ToTable("scan_event");
+
+        modelBuilder.Entity<ScanEvent>()
+            .HasOne(se => se.Device)
+            .WithMany()
+            .HasForeignKey(se => se.DeviceId);
 
         modelBuilder.Entity<ScrapLog>()
             .HasOne(s => s.ScrapItem)
