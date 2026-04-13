@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class Device
+public class Device
 {
     public uint Id { get; set; }
     public string DeviceUid { get; set; } = string.Empty;

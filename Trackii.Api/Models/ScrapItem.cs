@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class ScrapItem
+public class ScrapItem
 {
     public uint Id { get; set; }
     public uint WipStepExecutionId { get; set; }

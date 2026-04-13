@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class ErrorCategory
+public class ErrorCategory
 {
     public uint Id { get; set; }
     public string Name { get; set; } = string.Empty;

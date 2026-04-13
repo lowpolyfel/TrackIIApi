@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class ProductionStats
+public class ProductionStats
 {
     public uint LocationId { get; set; }
     public uint RouteStepId { get; set; }

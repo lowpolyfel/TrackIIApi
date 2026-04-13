@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class ReworkLog
+public class ReworkLog
 {
     public uint Id { get; set; }
     public uint ReworkItemId { get; set; }

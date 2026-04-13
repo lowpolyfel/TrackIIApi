@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class WipItem
+public class WipItem
 {
     public uint Id { get; set; }
     public uint WorkOrderId { get; set; }

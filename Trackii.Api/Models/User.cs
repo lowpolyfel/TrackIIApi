@@ -1,6 +1,6 @@
 namespace Trackii.Api.Models;
 
-public sealed class User
+public class User
 {
     public uint Id { get; set; }
     public string Username { get; set; } = string.Empty;
