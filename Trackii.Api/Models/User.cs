@@ -7,6 +7,8 @@ public class User
     public string Password { get; set; } = string.Empty;
     public uint RoleId { get; set; }
     public bool Active { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
     public Role? Role { get; set; }
     public ICollection<Device> Devices { get; set; } = new List<Device>();

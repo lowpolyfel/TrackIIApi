@@ -3,11 +3,13 @@ namespace Trackii.Api.Models;
 public class ScanEvent
 {
     public uint Id { get; set; }
-    public uint WipItemId { get; set; }
-    public uint RouteStepId { get; set; }
-    public string ScanType { get; set; } = "ENTRY";
-    public DateTime Ts { get; set; }
+    public string? RawCode { get; set; }
+    public string? RawWo { get; set; }
+    public string? RawPart { get; set; }
+    public uint DeviceId { get; set; }
+    public DateTime ScannedAt { get; set; }
+    public string Status { get; set; } = ScanEventStatus.SUCCESS.ToString();
+    public string ErrorType { get; set; } = ScanEventErrorType.NONE.ToString();
 
-    public WipItem? WipItem { get; set; }
-    public RouteStep? RouteStep { get; set; }
+    public Device? Device { get; set; }
 }
